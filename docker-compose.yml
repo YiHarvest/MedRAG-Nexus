@@ -1,0 +1,276 @@
+x-default-root-psw: &x-default-root-psw '123456'
+x-system-key: &x-system-key 'fastgpt-xxx'
+x-plugin-auth-token: &x-plugin-auth-token 'token'
+x-code-sandbox-token: &x-code-sandbox-token 'codesandbox'
+x-aiproxy-token: &x-aiproxy-token 'sk-token0000000000000000000000000000000000000000'
+
+x-share-db-config: &x-share-db-config
+  MONGODB_URI: mongodb://myusername:mypassword@mongo:27017/fastgpt?authSource=admin
+  DB_MAX_LINK: 100
+  REDIS_URL: redis://default:mypassword@redis:6379
+  STORAGE_VENDOR: minio
+  STORAGE_REGION: us-east-1
+  STORAGE_ACCESS_KEY_ID: minioadmin
+  STORAGE_SECRET_ACCESS_KEY: minioadmin
+  STORAGE_PUBLIC_BUCKET: fastgpt-public
+  STORAGE_PRIVATE_BUCKET: fastgpt-private
+  STORAGE_EXTERNAL_ENDPOINT: http://host.docker.internal:9000
+  STORAGE_S3_ENDPOINT: http://fastgpt-minio:9000
+  STORAGE_S3_FORCE_PATH_STYLE: true
+  STORAGE_S3_MAX_RETRIES: 3
+
+x-log-config: &x-log-config
+  LOG_ENABLE_CONSOLE: true
+  LOG_CONSOLE_LEVEL: debug
+
+x-vec-config: &x-vec-config
+  PG_URL: postgresql://username:password@pg:5432/postgres
+
+services:
+  vectorDB:
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/pgvector:0.8.0-pg15
+    container_name: pg
+    restart: always
+    networks:
+      - fastgpt
+    environment:
+      - POSTGRES_USER=username
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+    volumes:
+      - ./pg/data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'username', '-d', 'postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/mongo:5.0.32
+    container_name: mongo
+    restart: always
+    networks:
+      - fastgpt
+    command: mongod --keyFile /data/mongodb.key --replSet rs0
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=myusername
+      - MONGO_INITDB_ROOT_PASSWORD=mypassword
+    volumes:
+      - ./mongo/data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongo', '-u', 'myusername', '-p', 'mypassword', '--authenticationDatabase', 'admin', '--eval', "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    entrypoint:
+      - bash
+      - -c
+      - |
+        openssl rand -base64 128 > /data/mongodb.key
+        chmod 400 /data/mongodb.key
+        chown 999:999 /data/mongodb.key
+        echo 'const isInited = rs.status().ok === 1
+        if(!isInited){
+          rs.initiate({
+              _id: "rs0",
+              members: [
+                  { _id: 0, host: "mongo:27017" }
+              ]
+          })
+        }' > /data/initReplicaSet.js
+        exec docker-entrypoint.sh "$$@" &
+        until mongo -u myusername -p mypassword --authenticationDatabase admin --eval "print('waited for connection')"; do
+          echo "Waiting for MongoDB to start..."
+          sleep 2
+        done
+        mongo -u myusername -p mypassword --authenticationDatabase admin /data/initReplicaSet.js
+        wait $$!
+
+  redis:
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/redis:7.2-alpine
+    container_name: redis
+    networks:
+      - fastgpt
+    restart: always
+    command: |
+      redis-server --requirepass mypassword --loglevel warning --maxclients 10000 --appendonly yes --save 60 10
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'mypassword', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ./redis/data:/data
+
+  fastgpt-minio:
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: fastgpt-minio
+    restart: always
+    ports:
+      - 9000:9000
+      - 9001:9001
+    networks:
+      - fastgpt
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - ./fastgpt-minio:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  fastgpt:
+    container_name: fastgpt
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/fastgpt:v4.14.9.1
+    ports:
+      - 3000:3000
+    networks:
+      - fastgpt
+    depends_on:
+      - mongo
+      - code-sandbox
+      - vectorDB
+    restart: always
+    environment:
+      <<: [*x-share-db-config, *x-vec-config, *x-log-config]
+      FE_DOMAIN: http://localhost:3000
+      ROOT_KEY: *x-system-key
+      DEFAULT_ROOT_PSW: *x-default-root-psw
+      DB_MAX_LINK: 5
+      SYNC_INDEX: 1
+      TOKEN_KEY: fastgpt
+      FILE_TOKEN_KEY: filetokenkey
+      AES256_SECRET_KEY: fastgptsecret
+      MULTIPLE_DATA_TO_BASE64: true
+      OPENAI_BASE_URL: https://api.siliconflow.cn/v1
+      CHAT_API_KEY: sk-ppwfyjcbmenbohlympgjeoqjektmspgxpcfsuakbgokrmtvu
+      AIPROXY_API_ENDPOINT: http://aiproxy:3000
+      AIPROXY_API_TOKEN: *x-aiproxy-token
+      PLUGIN_BASE_URL: http://fastgpt-plugin:3000
+      PLUGIN_TOKEN: *x-plugin-auth-token
+      SANDBOX_URL: http://code-sandbox:3000
+      SANDBOX_TOKEN: *x-code-sandbox-token
+      LOG_OTEL_SERVICE_NAME: fastgpt-client
+      USE_IP_LIMIT: false
+      WORKFLOW_MAX_RUN_TIMES: 1000
+      WORKFLOW_MAX_LOOP_TIMES: 100
+      SERVICE_REQUEST_MAX_CONTENT_LENGTH: 10
+      CHECK_INTERNAL_IP: false
+      UPLOAD_FILE_MAX_SIZE: 1000
+      UPLOAD_FILE_MAX_AMOUNT: 1000
+      LLM_REQUEST_TRACKING_RETENTION_HOURS: 6
+      MAX_HTML_TRANSFORM_CHARS: 1000000
+    volumes:
+      - ./config.json:/app/data/config.json
+
+  code-sandbox:
+    container_name: code-sandbox
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/fastgpt-sandbox:v4.14.9.1
+    networks:
+      - fastgpt
+    restart: always
+    environment:
+      LOG_OTEL_SERVICE_NAME: fastgpt-code-sandbox
+      SANDBOX_TOKEN: *x-code-sandbox-token
+      SANDBOX_MAX_TIMEOUT: 60000
+      SANDBOX_MAX_MEMORY_MB: 256
+      SANDBOX_POOL_SIZE: 20
+      CHECK_INTERNAL_IP: false
+      SANDBOX_REQUEST_MAX_COUNT: 30
+      SANDBOX_REQUEST_TIMEOUT: 60000
+      SANDBOX_REQUEST_MAX_RESPONSE_MB: 10
+      SANDBOX_REQUEST_MAX_BODY_MB: 5
+      SANDBOX_JS_ALLOWED_MODULES: lodash,dayjs,moment,uuid,crypto-js,qs,url,querystring
+      SANDBOX_PYTHON_ALLOWED_MODULES: math,cmath,decimal,fractions,random,statistics,collections,array,heapq,bisect,queue,copy,itertools,functools,operator,string,re,difflib,textwrap,unicodedata,codecs,datetime,time,calendar,_strptime,json,csv,base64,binascii,struct,hashlib,hmac,secrets,uuid,typing,abc,enum,dataclasses,contextlib,pprint,weakref,numpy,pandas,matplotlib
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  fastgpt-mcp-server:
+    container_name: fastgpt-mcp-server
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/fastgpt-mcp_server:v4.14.9.1
+    networks:
+      - fastgpt
+    ports:
+      - 3005:3000
+    restart: always
+    environment:
+      <<: [*x-log-config]
+      FASTGPT_ENDPOINT: http://fastgpt:3000
+
+  fastgpt-plugin:
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/fastgpt-plugin:v0.5.5
+    container_name: fastgpt-plugin
+    restart: always
+    networks:
+      - fastgpt
+    environment:
+      <<: [*x-share-db-config, *x-log-config]
+      AUTH_TOKEN: *x-plugin-auth-token
+      SERVICE_REQUEST_MAX_CONTENT_LENGTH: 10
+      MAX_API_SIZE: 10
+      LOG_OTEL_SERVICE_NAME: fastgpt-plugin
+    depends_on:
+      fastgpt-minio:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  aiproxy:
+    image: registry.cn-hangzhou.aliyuncs.com/labring/aiproxy:v0.3.5
+    container_name: aiproxy
+    restart: unless-stopped
+    depends_on:
+      aiproxy_pg:
+        condition: service_healthy
+    networks:
+      - fastgpt
+      - aiproxy
+    environment:
+      ADMIN_KEY: *x-aiproxy-token
+      LOG_DETAIL_STORAGE_HOURS: 1
+      SQL_DSN: postgres://postgres:aiproxy@aiproxy_pg:5432/aiproxy
+      RETRY_TIMES: 3
+      BILLING_ENABLED: false
+      DISABLE_MODEL_CONFIG: true
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/api/status']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  aiproxy_pg:
+    image: registry.cn-hangzhou.aliyuncs.com/fastgpt/pgvector:0.8.0-pg15
+    restart: unless-stopped
+    container_name: aiproxy_pg
+    volumes:
+      - ./aiproxy_pg:/var/lib/postgresql/data
+    networks:
+      - aiproxy
+    environment:
+      TZ: Asia/Shanghai
+      POSTGRES_USER: postgres
+      POSTGRES_DB: aiproxy
+      POSTGRES_PASSWORD: aiproxy
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'postgres', '-d', 'aiproxy']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  fastgpt:
+    driver: bridge
+  aiproxy:
+    driver: bridge

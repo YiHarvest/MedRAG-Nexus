@@ -1,0 +1,60 @@
+# 环境变量文件（包含敏感信息）
+.env
+.env.local
+.env.*.local
+
+# MongoDB配置
+mongodb.key
+
+# 数据目录
+data/
+mongo/data/
+pg/data/
+redis/data/
+minio/data/
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE配置
+.idea/
+.vscode/
+*.iml
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env.local
+
+# Docker volumes (如果使用本地挂载)
+volumes/
+
+# 备份文件
+*.bak
+*.backup
+
+# 测试文件
+test/
+*.test.js
+*.spec.js
+
+# 上传的文件（可选，如果不想上传用户数据）
+# pdf/
+# uploads/

@@ -1,0 +1,64 @@
+{
+  "feConfigs": {
+    "lafEnv": "https://laf.dev",
+    "mcpServerProxyEndpoint": ""
+  },
+  "systemEnv": {
+    "datasetParseMaxProcess": 10,
+    "vectorMaxProcess": 10,
+    "qaMaxProcess": 10,
+    "vlmMaxProcess": 10,
+    "tokenWorkers": 30,
+    "hnswEfSearch": 100,
+    "hnswMaxScanTuples": 100000,
+    "customPdfParse": {
+      "url": "",
+      "key": "",
+      "doc2xKey": "",
+      "textinAppId": "",
+      "textinSecretCode": "",
+      "price": 0
+    }
+  },
+  "llmModels": [
+    {
+      "model": "deepseek-ai/DeepSeek-V3",
+      "name": "DeepSeek-V3",
+      "avatar": "/imgs/model/deepseek.svg",
+      "maxContext": 64000,
+      "maxResponse": 16000,
+      "quoteMaxToken": 13000,
+      "maxTemperature": 1.2,
+      "charsPointsPrice": 0,
+      "censor": false,
+      "vision": false,
+      "datasetProcess": true,
+      "usedInClassify": true,
+      "usedInExtractFields": true,
+      "usedInToolCall": true,
+      "usedInQueryExtension": true,
+      "toolChoice": true,
+      "functionCall": true,
+      "customCQPrompt": "",
+      "customExtractPrompt": "",
+      "defaultSystemChatPrompt": "",
+      "defaultConfig": {}
+    }
+  ],
+  "vectorModels": [
+    {
+      "model": "BAAI/bge-m3",
+      "name": "BGE-M3",
+      "avatar": "/imgs/model/bge.svg",
+      "charsPointsPrice": 0,
+      "defaultIndex": true,
+      "maxContext": 8192,
+      "maxToken": 8192,
+      "provider": "siliconflow",
+      "baseUrl": "https://api.siliconflow.cn/v1"
+    }
+  ],
+  "reRankModels": [],
+  "audioSpeechModels": [],
+  "whisperModel": []
+}
