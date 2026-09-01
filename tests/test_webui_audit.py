@@ -6,17 +6,17 @@ import json
 import sqlite3
 from datetime import date, timedelta
 
-from medrag_nexus.core.config import Settings
-from medrag_nexus.webui.audit import (
-    WebUiAuditLogExporter,
+from medrag_nexus.backend.account_store import AccountStore
+from medrag_nexus.backend.audit import (
+    AuditLogExporter,
     reset_audit_request_id,
     set_audit_request_id,
 )
-from medrag_nexus.webui.permissions import build_default_registry
-from medrag_nexus.webui.store import WebUiStore
+from medrag_nexus.backend.permissions import build_default_registry
+from medrag_nexus.core.config import Settings
 
 
-def test_webui_runtime_settings_isolate_all_storage_names(tmp_path) -> None:
+def test_backend_runtime_settings_isolate_all_storage_names(tmp_path) -> None:
     settings = Settings(
         _env_file=None,
         openai_embedding_url="http://embedding.test/v1/embeddings",
@@ -36,23 +36,23 @@ def test_webui_runtime_settings_isolate_all_storage_names(tmp_path) -> None:
         webui_elasticsearch_chunk_index="webui_chunks",
     )
 
-    webui = settings.webui_runtime_settings()
+    backend = settings.backend_runtime_settings()
 
-    assert webui.sqlite_path == settings.webui_sqlite_path
-    assert webui.data_root == settings.webui_data_root
-    assert webui.elasticsearch_url == settings.elasticsearch_url
-    assert webui.elasticsearch_chunk_index != settings.elasticsearch_chunk_index
-    assert webui.milvus_host == settings.milvus_host
-    assert webui.milvus_collection != settings.milvus_collection
-    assert webui.redis_queue_name != settings.redis_queue_name
+    assert backend.sqlite_path == settings.webui_sqlite_path
+    assert backend.data_root == settings.webui_data_root
+    assert backend.elasticsearch_url == settings.elasticsearch_url
+    assert backend.elasticsearch_chunk_index != settings.elasticsearch_chunk_index
+    assert backend.milvus_host == settings.milvus_host
+    assert backend.milvus_collection != settings.milvus_collection
+    assert backend.redis_queue_name != settings.redis_queue_name
 
 
 async def test_audit_events_export_with_actor_and_request_id(tmp_path) -> None:
     database_path = tmp_path / "webui.sqlite3"
     log_dir = tmp_path / "audit"
-    store = WebUiStore(database_path, build_default_registry())
+    store = AccountStore(database_path, build_default_registry())
     await store.ensure()
-    account = await store.create_registered_account(
+    account = await store.register_account(
         login_name="audit-user",
         display_name="审计用户",
         password_hash="not-a-real-password-hash",
@@ -69,7 +69,7 @@ async def test_audit_events_export_with_actor_and_request_id(tmp_path) -> None:
     finally:
         reset_audit_request_id(request_context)
 
-    exporter = WebUiAuditLogExporter(database_path, log_dir, retention_months=3)
+    exporter = AuditLogExporter(database_path, log_dir, retention_months=3)
     await exporter.ensure()
     assert await exporter.export_pending() >= 1
     assert await exporter.export_pending() == 0
@@ -88,10 +88,10 @@ async def test_audit_events_export_with_actor_and_request_id(tmp_path) -> None:
 
 async def test_audit_cleanup_removes_only_expired_daily_logs(tmp_path) -> None:
     database_path = tmp_path / "webui.sqlite3"
-    store = WebUiStore(database_path, build_default_registry())
+    store = AccountStore(database_path, build_default_registry())
     await store.ensure()
     log_dir = tmp_path / "audit"
-    exporter = WebUiAuditLogExporter(database_path, log_dir, retention_months=3)
+    exporter = AuditLogExporter(database_path, log_dir, retention_months=3)
     await exporter.ensure()
     await store.record_audit(
         actor_account_id=None,

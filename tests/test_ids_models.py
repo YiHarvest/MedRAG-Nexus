@@ -136,9 +136,7 @@ def test_task_defaults_and_public_response_omits_internal_operation() -> None:
         workspace_name="Knowledge",
         operation="add_str",
     )
-    public = task.model_dump(
-        exclude={"operation", "payload", "journal", "user_id", "workspace_id", "workspace_name"}
-    )
+    public = task.model_dump(exclude={"operation", "payload", "journal", "user_id", "workspace_id", "workspace_name"})
     response = TaskResponse.model_validate(public)
     assert "operation" not in response.model_dump()
     assert response.progress.percent == 0

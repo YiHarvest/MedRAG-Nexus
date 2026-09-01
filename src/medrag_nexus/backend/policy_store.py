@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
-from .models import AccountRecord
+from .account_models import AccountRecord
 
 PolicyAction = str
 ResourceType = Literal["user", "workspace"]
@@ -133,9 +133,7 @@ class KnowledgePolicyStore:
         db.execute("DROP INDEX IF EXISTS idx_webui_policy_resource")
         db.execute("ALTER TABLE webui_policy_bindings RENAME TO webui_policy_bindings_legacy")
         KnowledgePolicyStore._create_v2_bindings(db)
-        legacy_columns = {
-            str(item[1]) for item in db.execute("PRAGMA table_info(webui_policy_bindings_legacy)")
-        }
+        legacy_columns = {str(item[1]) for item in db.execute("PRAGMA table_info(webui_policy_bindings_legacy)")}
         rows = db.execute("SELECT * FROM webui_policy_bindings_legacy").fetchall()
         workspace_writes = WORKSPACE_POLICY_ACTIONS[1:]
         for item in rows:
@@ -144,9 +142,7 @@ class KnowledgePolicyStore:
             resource_type = str(item["resource_type"])
             old_action = str(item["action"])
             if old_action == "read":
-                actions = (
-                    "webui.user.read" if resource_type == "user" else "webui.workspace.read",
-                )
+                actions = ("webui.user.read" if resource_type == "user" else "webui.workspace.read",)
             elif old_action == "create_workspace":
                 actions = ("webui.workspace.create",)
             elif old_action == "cud" and resource_type == "workspace":
@@ -543,8 +539,7 @@ class KnowledgePolicyStore:
                 db.execute("BEGIN IMMEDIATE")
                 try:
                     superadmins = db.execute(
-                        "SELECT account_id FROM webui_accounts "
-                        "WHERE enabled = 1 AND permission_level = 1000"
+                        "SELECT account_id FROM webui_accounts WHERE enabled = 1 AND permission_level = 1000"
                     ).fetchall()
                     for row in superadmins:
                         self._insert_system_allows(
@@ -602,10 +597,7 @@ class KnowledgePolicyStore:
     ) -> None:
         """按普通账号的全部知识域绑定重建系统管理 ACL。"""
 
-        normalized = {
-            user_id: tuple(dict.fromkeys(workspace_ids))
-            for user_id, workspace_ids in bindings.items()
-        }
+        normalized = {user_id: tuple(dict.fromkeys(workspace_ids)) for user_id, workspace_ids in bindings.items()}
 
         def write() -> None:
             with self._connect() as db:
@@ -698,9 +690,7 @@ class KnowledgePolicyStore:
             with self._connect() as db:
                 db.execute("BEGIN IMMEDIATE")
                 try:
-                    if not db.execute(
-                        "SELECT 1 FROM webui_accounts WHERE account_id = ?", (account_id,)
-                    ).fetchone():
+                    if not db.execute("SELECT 1 FROM webui_accounts WHERE account_id = ?", (account_id,)).fetchone():
                         raise InvalidPolicyBindingError("account does not exist")
                     if self._is_superadmin_account(db, account_id):
                         raise InvalidPolicyBindingError("superadmin resource access cannot be removed")
@@ -717,10 +707,7 @@ class KnowledgePolicyStore:
                         "created_by_account_id, created_at) "
                         "VALUES (lower(hex(randomblob(16))), ?, ?, ?, 'account', ?, 'deny', 0, "
                         "'self.leave', ?, ?)",
-                        [
-                            (resource_type, resource_id, action, account_id, account_id, now)
-                            for action in actions
-                        ],
+                        [(resource_type, resource_id, action, account_id, account_id, now) for action in actions],
                     )
                     db.commit()
                 except BaseException:
@@ -805,8 +792,7 @@ class KnowledgePolicyStore:
     def _is_superadmin_account(db: sqlite3.Connection, account_id: str) -> bool:
         return bool(
             db.execute(
-                "SELECT 1 FROM webui_accounts WHERE account_id = ? "
-                "AND enabled = 1 AND permission_level >= 1000",
+                "SELECT 1 FROM webui_accounts WHERE account_id = ? AND enabled = 1 AND permission_level >= 1000",
                 (account_id,),
             ).fetchone()
         )
@@ -838,8 +824,5 @@ class KnowledgePolicyStore:
             "INSERT OR IGNORE INTO webui_policy_bindings(binding_id, resource_type, resource_id, action, "
             "principal_type, principal_id, effect, immutable, managed_by, created_by_account_id, created_at) "
             "VALUES (lower(hex(randomblob(16))), ?, ?, ?, ?, ?, 'allow', 1, ?, NULL, ?)",
-            [
-                (resource_type, resource_id, action, principal_type, principal_id, source, now)
-                for action in actions
-            ],
+            [(resource_type, resource_id, action, principal_type, principal_id, source, now) for action in actions],
         )

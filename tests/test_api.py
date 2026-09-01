@@ -82,9 +82,9 @@ def test_openapi_describes_backend_owned_resources() -> None:
         "健康检查",
     ]
 
-    user_schema = schema["components"]["schemas"]["CreateKnowledgeUserRequest"]
-    workspace_schema = schema["components"]["schemas"]["CreateWorkspaceRequest"]
-    assert "user_id" not in user_schema.get("required", [])
+    user_schema = schema["components"]["schemas"]["RegisterKnowledgeDomainRequest"]
+    workspace_schema = schema["components"]["schemas"]["RegisterKnowledgeBaseRequest"]
+    assert "user_id" not in user_schema["properties"]
     assert "user_id" in workspace_schema["required"]
     assert "workspace_id" not in workspace_schema["properties"]
 

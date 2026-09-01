@@ -13,7 +13,7 @@ import {
   resetWebUiAccountPassword, setWebUiAccountBindings,
 } from "@/lib/webui-admin-api";
 import {
-  createWebUiKnowledgeUser, createWebUiWorkspace, deleteWebUiKnowledgeUser, deleteWebUiWorkspace, describeWebUiError,
+  registerKnowledgeDomain, registerKnowledgeBase, deleteWebUiKnowledgeUser, deleteWebUiWorkspace, describeWebUiError,
   getPermissionCatalog, leaveWebUiKnowledgeUser, leaveWebUiWorkspace, type PermissionCatalog, type PermissionGroupDefinition,
   type PermissionLevelDefinition, type PermissionNodeDefinition, type WebUiWorkspace,
   type WebUiWorkspaceUser, renameWebUiKnowledgeUser, renameWebUiWorkspace, updateWebUiUserPolicy,
@@ -332,11 +332,11 @@ export function ManagementView() {
   }
   async function submitUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await perform(async () => { await createWebUiKnowledgeUser({ user_name: userName.trim(), bind_account_id: userAccount || null }); setUserOpen(false); setUserName(""); setUserAccount(""); setNotice({ kind: "success", title: "知识域已创建", detail: "可以继续在该知识域中新建知识库。" }); await reload(); }, "知识域创建失败");
+    await perform(async () => { await registerKnowledgeDomain({ user_name: userName.trim(), bind_account_id: userAccount || null }); setUserOpen(false); setUserName(""); setUserAccount(""); setNotice({ kind: "success", title: "知识域已创建", detail: "可以继续在该知识域中新建知识库。" }); await reload(); }, "知识域创建失败");
   }
   async function submitWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!newWorkspaceUser) return;
-    await perform(async () => { await createWebUiWorkspace({ user_id: newWorkspaceUser.user_id, workspace_name: workspaceName.trim(), read_min_level: Number(workspaceRead), cud_min_level: Number(workspaceWrite) }); setNewWorkspaceUser(null); setNotice({ kind: "success", title: "知识库已创建", detail: workspaceName }); setWorkspaceName(""); await refreshWorkspaces(); }, "知识库创建失败");
+    await perform(async () => { await registerKnowledgeBase({ user_id: newWorkspaceUser.user_id, workspace_name: workspaceName.trim(), read_min_level: Number(workspaceRead), cud_min_level: Number(workspaceWrite) }); setNewWorkspaceUser(null); setNotice({ kind: "success", title: "知识库已创建", detail: workspaceName }); setWorkspaceName(""); await refreshWorkspaces(); }, "知识库创建失败");
   }
   async function submitUserPolicy(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!userPolicy) return;

@@ -13,7 +13,7 @@ import {
   getCurrentAccount,
   loginWebUiAccount,
   logoutWebUiAccount,
-  registerWebUiAccount,
+  registerAccount,
   WebUiApiError,
   type WebUiPrincipal,
 } from "@/lib/webui-api";
@@ -96,7 +96,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     display_name: string;
     password: string;
   }) => {
-    const next = await registerWebUiAccount(payload);
+    const next = await registerAccount(payload);
     setPrincipal(next);
     setLoading(false);
     return next;

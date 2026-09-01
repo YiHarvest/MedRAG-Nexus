@@ -260,10 +260,7 @@ async def prepare_file_download(context: AgentContext, arguments: Mapping[str, A
     if resource is None or resource.file_name is None:
         verified_files.pop((workspace_id, file_id), None)
         raise AgentAuthorizationError("file_not_found", "文件不存在；请重新调用 list_files 获取当前真实 file_id。")
-    if (
-        verification.get("content_hash") != resource.content_hash
-        or verification.get("file_name") != resource.file_name
-    ):
+    if verification.get("content_hash") != resource.content_hash or verification.get("file_name") != resource.file_name:
         verified_files.pop((workspace_id, file_id), None)
         raise AgentAuthorizationError(
             "file_verification_required",
@@ -427,7 +424,7 @@ def read_tool_specs() -> tuple[ToolSpec, ...]:
         ),
         ToolSpec(
             "list_accounts",
-            "列出可管理的 WebUI 账号（绝不返回密码字段）。",
+            "列出可管理的后端账号（绝不返回密码字段）。",
             object_schema({"limit": {"type": "integer", "minimum": 1, "maximum": 500}}),
             list_accounts,
             ("webui.account.manage",),

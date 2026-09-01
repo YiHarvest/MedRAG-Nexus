@@ -1,4 +1,4 @@
-"""WebUI 账号 API 与持久化层共用的数据契约。"""
+"""后端账号 API 与持久化层共用的数据契约。"""
 
 from __future__ import annotations
 
@@ -77,13 +77,13 @@ class AccountListResponse(APIModel):
     total: int
 
 
-class RegisterRequest(APIModel):
+class RegisterAccountRequest(APIModel):
     login_name: LoginName
     display_name: DisplayName
     password: Password
 
     @model_validator(mode="after")
-    def reject_password_matching_login(self) -> RegisterRequest:
+    def reject_password_matching_login(self) -> RegisterAccountRequest:
         if self.password.casefold() == self.login_name.casefold():
             raise ValueError("password must not equal login_name")
         return self

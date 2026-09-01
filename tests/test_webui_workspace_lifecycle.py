@@ -12,13 +12,13 @@ from uuid import uuid4
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from medrag_nexus.backend import AccountStore, build_default_registry, create_account_router
+from medrag_nexus.backend.knowledge_router import create_knowledge_router
+from medrag_nexus.backend.policy_store import KnowledgePolicyStore
+from medrag_nexus.backend.security import PasswordService
 from medrag_nexus.core.models import WorkspaceRecord, local_now
 from medrag_nexus.storage.files import ArtifactStore
 from medrag_nexus.storage.sqlite import SQLiteStore
-from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
-from medrag_nexus.webui.knowledge_router import create_knowledge_router
-from medrag_nexus.webui.policy_store import KnowledgePolicyStore
-from medrag_nexus.webui.security import PasswordService
 
 
 class _Tasks:
@@ -51,9 +51,7 @@ class _StatefulElasticsearch:
 
     async def delete_workspace_contents(self, workspace_id: str) -> None:
         self.workspaces.pop(workspace_id, None)
-        self.documents = {
-            key: value for key, value in self.documents.items() if value["workspace_id"] != workspace_id
-        }
+        self.documents = {key: value for key, value in self.documents.items() if value["workspace_id"] != workspace_id}
         self.chunks = {key: value for key, value in self.chunks.items() if value["workspace_id"] != workspace_id}
 
     async def count_workspace_contents(self, workspace_id: str) -> tuple[int, int]:
@@ -145,7 +143,7 @@ async def test_rename_then_delete_removes_all_business_data_but_keeps_tombstone(
         )
 
     registry = build_default_registry()
-    accounts = WebUiStore(database_path, registry)
+    accounts = AccountStore(database_path, registry)
     policies = KnowledgePolicyStore(database_path)
     await accounts.ensure()
     await policies.ensure()
@@ -177,11 +175,11 @@ async def test_rename_then_delete_removes_all_business_data_but_keeps_tombstone(
         settings=SimpleNamespace(max_file_bytes=50 * 1024 * 1024),
     )
     app = FastAPI()
-    app.include_router(create_webui_router(accounts, registry))
+    app.include_router(create_account_router(accounts, registry))
     app.include_router(create_knowledge_router(runtime, accounts, policies))
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", token)
+        client.cookies.set("medrag_nexus_webui_account_session", token)
         renamed = await client.patch(
             f"/api/v1/workspaces/{workspace.workspace_id}",
             json={"workspace_name": "新知识库名称"},
@@ -204,6 +202,7 @@ async def test_rename_then_delete_removes_all_business_data_but_keeps_tombstone(
         assert deleted.json()["status"] == "deleted"
 
     with sqlite3.connect(database_path) as db:
+
         def count(table: str) -> int:
             return int(
                 db.execute(
@@ -216,10 +215,13 @@ async def test_rename_then_delete_removes_all_business_data_but_keeps_tombstone(
         assert count("resources") == 0
         assert count("tasks") == 0
         assert count("webui_workspace_policies") == 0
-        assert db.execute(
-            "SELECT COUNT(*) FROM webui_policy_bindings WHERE resource_type='workspace' AND resource_id=?",
-            (workspace.workspace_id,),
-        ).fetchone()[0] == 0
+        assert (
+            db.execute(
+                "SELECT COUNT(*) FROM webui_policy_bindings WHERE resource_type='workspace' AND resource_id=?",
+                (workspace.workspace_id,),
+            ).fetchone()[0]
+            == 0
+        )
     assert elasticsearch.workspaces == {}
     assert elasticsearch.documents == {}
     assert elasticsearch.chunks == {}

@@ -9,18 +9,18 @@ from pathlib import Path
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
-from medrag_nexus.webui.permissions import PermissionEngine, PermissionRegistry, PluginManifest
-from medrag_nexus.webui.security import PasswordService
+from medrag_nexus.backend import AccountStore, build_default_registry, create_account_router
+from medrag_nexus.backend.permissions import PermissionEngine, PermissionRegistry, PluginManifest
+from medrag_nexus.backend.security import PasswordService
 
 
-def _app(store: WebUiStore) -> FastAPI:
+def _app(store: AccountStore) -> FastAPI:
     app = FastAPI()
-    app.include_router(create_webui_router(store))
+    app.include_router(create_account_router(store))
     return app
 
 
-async def _bootstrap_admin(store: WebUiStore, password: str = "SuperSecure!123") -> None:
+async def _bootstrap_admin(store: AccountStore, password: str = "SuperSecure!123") -> None:
     encoded = PasswordService().hash(password)
     await store.bootstrap_superadmin(login_name="root", display_name="Root Admin", password_hash=encoded)
 
@@ -34,7 +34,7 @@ async def test_registration_only_creates_unbound_account_and_hashed_session(tmp_
             "str_count INTEGER NOT NULL DEFAULT 0, total_size_bytes INTEGER NOT NULL DEFAULT 0, "
             "created_at TEXT NOT NULL, modified_at TEXT NOT NULL)"
         )
-    store = WebUiStore(path, build_default_registry())
+    store = AccountStore(path, build_default_registry())
     app = _app(store)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
@@ -51,8 +51,20 @@ async def test_registration_only_creates_unbound_account_and_hashed_session(tmp_
         assert "webui.permission.catalog.read" in body["permissions"]
         assert body["expires_at"] is not None
         cookie = response.headers["set-cookie"]
+        assert cookie.startswith("medrag_nexus_webui_account_session=")
         assert "HttpOnly" in cookie
         assert "SameSite=lax" in cookie
+
+        caller_selected_id = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "account_id": "caller-selected",
+                "login_name": "mallory",
+                "display_name": "Mallory",
+                "password": "MallorySecure!123",
+            },
+        )
+        assert caller_selected_id.status_code == 422
 
         me = await client.get("/api/v1/auth/me")
         assert me.status_code == 200
@@ -67,12 +79,12 @@ async def test_registration_only_creates_unbound_account_and_hashed_session(tmp_
     assert password_hash.startswith("$argon2id$")
     assert "AliceSecure!123" not in password_hash
     assert len(session_hash) == 64
-    assert "medrag_nexus_account_session=" not in session_hash
+    assert "medrag_nexus_webui_account_session=" not in session_hash
     assert knowledge_user_count == 0
 
 
 async def test_registered_user_cannot_access_admin_accounts(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         await client.post(
             "/api/v1/auth/register",
@@ -84,7 +96,7 @@ async def test_registered_user_cannot_access_admin_accounts(tmp_path: Path) -> N
 
 
 async def test_webui_password_accepts_three_characters_and_rejects_two(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         accepted = await client.post(
             "/api/v1/auth/register",
@@ -99,12 +111,10 @@ async def test_webui_password_accepts_three_characters_and_rejects_two(tmp_path:
 
 
 async def test_superadmin_can_create_peer_and_all_superadmins_are_immutable(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     await _bootstrap_admin(store)
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
-        login = await client.post(
-            "/api/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"}
-        )
+        login = await client.post("/api/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"})
         assert login.status_code == 200
         assert "webui.account.create_superadmin" in login.json()["permissions"]
 
@@ -141,7 +151,7 @@ async def test_superadmin_can_create_peer_and_all_superadmins_are_immutable(tmp_
 
 
 async def test_password_change_revokes_old_session_and_new_password_logs_in(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     app = _app(store)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         await client.post(
@@ -165,7 +175,7 @@ async def test_password_change_revokes_old_session_and_new_password_logs_in(tmp_
 
 
 async def test_login_lock_cannot_be_cleared_by_another_failed_attempt(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     await _bootstrap_admin(store)
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         for _ in range(5):
@@ -193,7 +203,7 @@ async def test_login_lock_cannot_be_cleared_by_another_failed_attempt(tmp_path: 
 
 
 async def test_concurrent_failed_logins_atomically_reach_locked_state(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     await _bootstrap_admin(store)
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         responses = await asyncio.gather(
@@ -220,7 +230,7 @@ async def test_concurrent_failed_logins_atomically_reach_locked_state(tmp_path: 
 
 
 async def test_only_registered_levels_can_be_assigned(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     await _bootstrap_admin(store)
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         assert (
@@ -246,9 +256,9 @@ async def test_only_registered_levels_can_be_assigned(tmp_path: Path) -> None:
 async def test_retired_level_and_session_permission_are_migrated(tmp_path: Path) -> None:
     path = tmp_path / "metadata.sqlite3"
     registry = build_default_registry()
-    store = WebUiStore(path, registry)
+    store = AccountStore(path, registry)
     await _bootstrap_admin(store)
-    member = await store.create_registered_account(
+    member = await store.register_account(
         login_name="legacy-level",
         display_name="Legacy Level",
         password_hash=PasswordService().hash("LegacySecure!123"),
@@ -289,37 +299,39 @@ async def test_retired_level_and_session_permission_are_migrated(tmp_path: Path)
             (member.account_id,),
         )
 
-    migrated = WebUiStore(path, registry)
+    migrated = AccountStore(path, registry)
     await migrated.ensure()
     migrated_member = await migrated.get_account(member.account_id)
     assert migrated_member is not None
     assert migrated_member.permission_level == 2
     with sqlite3.connect(path) as db:
         assert db.execute(
-            "SELECT read_min_level, workspace_create_min_level FROM webui_user_policies "
-            "WHERE user_id = 'legacy-user'"
+            "SELECT read_min_level, workspace_create_min_level FROM webui_user_policies WHERE user_id = 'legacy-user'"
         ).fetchone() == (2, 2)
         assert db.execute(
-            "SELECT read_min_level, cud_min_level FROM webui_workspace_policies "
-            "WHERE workspace_id = 'legacy-workspace'"
+            "SELECT read_min_level, cud_min_level FROM webui_workspace_policies WHERE workspace_id = 'legacy-workspace'"
         ).fetchone() == (2, 2)
-        assert db.execute(
-            "SELECT 1 FROM webui_permission_nodes WHERE permission_key = 'webui.account.sessions.revoke'"
-        ).fetchone() is None
+        assert (
+            db.execute(
+                "SELECT 1 FROM webui_permission_nodes WHERE permission_key = 'webui.account.sessions.revoke'"
+            ).fetchone()
+            is None
+        )
         assert db.execute("SELECT 1 FROM webui_permission_levels WHERE level = 3").fetchone() is None
-        assert db.execute(
-            "SELECT 1 FROM webui_audit_events WHERE action = 'webui.permission_model.migrate'"
-        ).fetchone() is not None
-        assert db.execute(
-            "SELECT 1 FROM webui_permission_groups WHERE group_key = 'webui.registered'"
-        ).fetchone() is None
+        assert (
+            db.execute("SELECT 1 FROM webui_audit_events WHERE action = 'webui.permission_model.migrate'").fetchone()
+            is not None
+        )
+        assert (
+            db.execute("SELECT 1 FROM webui_permission_groups WHERE group_key = 'webui.registered'").fetchone() is None
+        )
     assert (await migrated.get_account(member.account_id)).groups == []
 
 
 async def test_superadmin_resets_password_and_reads_audit_events(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     await _bootstrap_admin(store)
-    target = await store.create_registered_account(
+    target = await store.register_account(
         login_name="resetme",
         display_name="Reset Me",
         password_hash=PasswordService().hash("OriginalSecure!123"),
@@ -350,14 +362,14 @@ async def test_superadmin_resets_password_and_reads_audit_events(tmp_path: Path)
 async def test_store_allows_multiple_accounts_to_share_bound_user_id(tmp_path: Path) -> None:
     path = tmp_path / "metadata.sqlite3"
     registry = build_default_registry()
-    store = WebUiStore(path, registry)
+    store = AccountStore(path, registry)
     await _bootstrap_admin(store)
-    second = await store.create_registered_account(
+    second = await store.register_account(
         login_name="legacy",
         display_name="Legacy User",
         password_hash=PasswordService().hash("LegacySecure!123"),
     )
-    third = await store.create_registered_account(
+    third = await store.register_account(
         login_name="legacy-second",
         display_name="Legacy Second User",
         password_hash=PasswordService().hash("LegacySecure!456"),
@@ -381,7 +393,7 @@ async def test_store_allows_multiple_accounts_to_share_bound_user_id(tmp_path: P
         )
         db.execute("UPDATE webui_accounts SET bound_user_id = 'legacy-user' WHERE account_id = ?", (root.account_id,))
 
-    migrated_store = WebUiStore(path, registry)
+    migrated_store = AccountStore(path, registry)
     await migrated_store.ensure()
     migrated_second = await migrated_store.get_account(second.account_id)
     migrated_third = await migrated_store.get_account(third.account_id)
@@ -401,7 +413,7 @@ async def test_store_allows_multiple_accounts_to_share_bound_user_id(tmp_path: P
 
 async def test_store_ensure_is_idempotent_and_registry_rejects_bad_plugins(tmp_path: Path) -> None:
     registry = build_default_registry()
-    store = WebUiStore(tmp_path / "metadata.sqlite3", registry)
+    store = AccountStore(tmp_path / "metadata.sqlite3", registry)
     await store.ensure()
     await store.ensure()
     with sqlite3.connect(store.path) as db:
@@ -449,12 +461,10 @@ def test_permission_engine_combines_node_level_and_explicit_deny() -> None:
 
 
 async def test_dynamic_permission_group_crud_and_multi_group_union(tmp_path: Path) -> None:
-    store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    store = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     await _bootstrap_admin(store)
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
-        await client.post(
-            "/api/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"}
-        )
+        await client.post("/api/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"})
         catalog = await client.get("/api/v1/permission-catalog")
         assert catalog.status_code == 200
         assert [item["value"] for item in catalog.json()["levels"]] == [0, 1, 2, 1000]
@@ -519,9 +529,7 @@ async def test_dynamic_permission_group_crud_and_multi_group_union(tmp_path: Pat
             "/api/v1/auth/login",
             json={"login_name": "combined", "password": "Combined!123"},
         )
-        left = await client.delete(
-            "/api/v1/account/permission-groups/webui.custom.policy_reader"
-        )
+        left = await client.delete("/api/v1/account/permission-groups/webui.custom.policy_reader")
         assert left.status_code == 200, left.text
         assert left.json()["groups"] == ["webui.custom.domain_creator"]
         assert "webui.audit.read" not in left.json()["permissions"]
@@ -537,12 +545,12 @@ async def test_binding_allows_multiple_accounts_per_domain_and_does_not_create_u
         )
         db.execute("INSERT INTO users VALUES ('legal', 'Legal', 'now', 'now')")
         db.execute("INSERT INTO users VALUES ('finance', 'Finance', 'now', 'now')")
-    store = WebUiStore(path, build_default_registry())
+    store = AccountStore(path, build_default_registry())
     await _bootstrap_admin(store)
-    first = await store.create_registered_account(
+    first = await store.register_account(
         login_name="first", display_name="First", password_hash=PasswordService().hash("First!123")
     )
-    second = await store.create_registered_account(
+    second = await store.register_account(
         login_name="second", display_name="Second", password_hash=PasswordService().hash("Second!123")
     )
     bound = await store.bind_account_user(first.account_id, "legal", actor_account_id=first.account_id)
@@ -553,9 +561,7 @@ async def test_binding_allows_multiple_accounts_per_domain_and_does_not_create_u
         actor_account_id=first.account_id,
     )
     assert multiple.bound_user_ids == ["finance", "legal"]
-    second_bound = await store.bind_account_user(
-        second.account_id, "legal", actor_account_id=second.account_id
-    )
+    second_bound = await store.bind_account_user(second.account_id, "legal", actor_account_id=second.account_id)
     assert second_bound.bound_user_id == "legal"
     unbound = await store.bind_account_user(first.account_id, None, actor_account_id=first.account_id)
     assert unbound.bound_user_id is None
@@ -565,8 +571,8 @@ async def test_binding_allows_multiple_accounts_per_domain_and_does_not_create_u
 
 async def test_missing_plugin_nodes_remain_configured_but_fail_closed(tmp_path: Path) -> None:
     path = tmp_path / "metadata.sqlite3"
-    store = WebUiStore(path, build_default_registry())
-    account = await store.create_registered_account(
+    store = AccountStore(path, build_default_registry())
+    account = await store.register_account(
         login_name="pluginuser",
         display_name="Plugin User",
         password_hash=PasswordService().hash("PluginUser!123"),
@@ -580,13 +586,9 @@ async def test_missing_plugin_nodes_remain_configured_but_fail_closed(tmp_path: 
             "INSERT INTO webui_permission_groups(group_key, description, system_managed, modified_at) "
             "VALUES ('webui.custom.external', 'External group', 0, 'now')"
         )
-        db.execute(
-            "INSERT INTO webui_group_permissions VALUES ('webui.custom.external', 'webui.external.use')"
-        )
-        db.execute(
-            "INSERT INTO webui_account_groups VALUES (?, 'webui.custom.external')", (account.account_id,)
-        )
-    reloaded = WebUiStore(path, build_default_registry())
+        db.execute("INSERT INTO webui_group_permissions VALUES ('webui.custom.external', 'webui.external.use')")
+        db.execute("INSERT INTO webui_account_groups VALUES (?, 'webui.custom.external')", (account.account_id,))
+    reloaded = AccountStore(path, build_default_registry())
     await reloaded.ensure()
     assert "webui.external.use" not in await reloaded.permission_keys(account.account_id)
     catalog = await reloaded.permission_catalog()

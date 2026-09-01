@@ -11,11 +11,11 @@ from pydantic import Field
 from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse
 
+from medrag_nexus.backend.account_router import DEFAULT_COOKIE_NAME, AccountPrincipal, create_principal_dependency
+from medrag_nexus.backend.account_store import AccountStore
+from medrag_nexus.backend.policy_store import KnowledgePolicyStore
 from medrag_nexus.core.models import APIModel
 from medrag_nexus.core.paths import AGENT_API_PREFIX
-from medrag_nexus.webui.policy_store import KnowledgePolicyStore
-from medrag_nexus.webui.router import DEFAULT_COOKIE_NAME, WebUiPrincipal, create_principal_dependency
-from medrag_nexus.webui.store import WebUiStore
 
 from .artifacts import ArtifactService
 from .models import ActionTarget, AgentAction
@@ -49,7 +49,7 @@ class SecureInputRequest(APIModel):
 
 def create_agent_router(
     runtime: Any,
-    webui_store: WebUiStore,
+    account_store: AccountStore,
     policies: KnowledgePolicyStore,
     action_store: AgentStore,
     artifacts: ArtifactService,
@@ -58,13 +58,13 @@ def create_agent_router(
 ) -> APIRouter:
     """构建仅供已登录 WebUI 会话使用的 Agent 路由。"""
 
-    principal_dependency = create_principal_dependency(webui_store, cookie_name=cookie_name)
+    principal_dependency = create_principal_dependency(account_store, cookie_name=cookie_name)
     principal_dep = Depends(principal_dependency)
     executor = ConfirmedActionExecutor(cookie_name=cookie_name)
     router = APIRouter(prefix=AGENT_API_PREFIX, tags=["Agent"])
 
     @router.get("/actions/{action_id}")
-    async def get_action(action_id: str, caller: WebUiPrincipal = principal_dep) -> dict[str, Any]:
+    async def get_action(action_id: str, caller: AccountPrincipal = principal_dep) -> dict[str, Any]:
         action = await _owned_action(action_store, action_id, caller)
         return action_response(action)
 
@@ -73,7 +73,7 @@ def create_agent_router(
         action_id: str,
         payload: ConfirmActionRequest,
         request: Request,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, Any]:
         action = await _owned_action(action_store, action_id, caller)
         if action.status in {"executing", "succeeded", "failed"}:
@@ -115,12 +115,12 @@ def create_agent_router(
         )
 
     @router.delete("/actions/{action_id}")
-    async def cancel_action(action_id: str, caller: WebUiPrincipal = principal_dep) -> dict[str, Any]:
+    async def cancel_action(action_id: str, caller: AccountPrincipal = principal_dep) -> dict[str, Any]:
         try:
             cancelled = await action_store.cancel_action(action_id, account_id=caller.account_id)
         except AgentStoreError as exc:
             raise _store_error(exc) from exc
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.agent.action.cancel",
             resource_type="agent_action",
@@ -132,7 +132,7 @@ def create_agent_router(
     async def submit_input(
         action_id: str,
         request: Request,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, Any]:
         action = await _owned_action(action_store, action_id, caller)
         await _authorize_action(runtime, policies, action, caller, verify_target=False)
@@ -186,7 +186,7 @@ def create_agent_router(
     @router.get("/artifacts/{artifact_id}/download")
     async def download_artifact(
         artifact_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> FileResponse:
         try:
             artifact, path = await artifacts.resolve_download(artifact_id)
@@ -194,7 +194,7 @@ def create_agent_router(
             raise _artifact_error(exc) from exc
         await _authorize_artifact(runtime, policies, artifact, caller)
         await action_store.record_artifact_download(artifact_id, account_id=caller.account_id)
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.agent.artifact.download",
             resource_type="agent_artifact",
@@ -211,7 +211,7 @@ def create_agent_router(
     @router.delete("/artifacts/{artifact_id}", status_code=status.HTTP_204_NO_CONTENT)
     async def revoke_artifact(
         artifact_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> None:
         try:
             record = await action_store.get_artifact(artifact_id)
@@ -225,7 +225,7 @@ def create_agent_router(
             account_id=caller.account_id,
             allow_non_owner=caller.account.permission_level >= 1000,
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.agent.artifact.revoke",
             resource_type="agent_artifact",
@@ -235,7 +235,7 @@ def create_agent_router(
     return router
 
 
-async def _owned_action(store: AgentStore, action_id: str, caller: WebUiPrincipal) -> AgentAction:
+async def _owned_action(store: AgentStore, action_id: str, caller: AccountPrincipal) -> AgentAction:
     try:
         return await store.get_action(action_id, account_id=caller.account_id)
     except AgentStoreError as exc:
@@ -246,7 +246,7 @@ async def _authorize_action(
     runtime: Any,
     policies: KnowledgePolicyStore,
     action: AgentAction,
-    caller: WebUiPrincipal,
+    caller: AccountPrincipal,
     *,
     verify_target: bool,
 ) -> None:
@@ -311,7 +311,7 @@ async def _authorize_action(
 
 async def _execute_confirmed(
     request: Request,
-    caller: WebUiPrincipal,
+    caller: AccountPrincipal,
     action: AgentAction,
     store: AgentStore,
     executor: ConfirmedActionExecutor,
@@ -387,7 +387,7 @@ async def _authorize_artifact(
     runtime: Any,
     policies: KnowledgePolicyStore,
     artifact: Any,
-    caller: WebUiPrincipal,
+    caller: AccountPrincipal,
 ) -> None:
     missing = sorted(set(artifact.required_permissions) - set(caller.permissions))
     if missing:

@@ -1,4 +1,4 @@
-"""WebUI 专用的账号、Session 与审计 API。"""
+"""后端账号注册、Session、权限与审计 API。"""
 
 import asyncio
 from collections.abc import Awaitable, Callable
@@ -10,7 +10,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, 
 
 from medrag_nexus.core.paths import API_V1_PREFIX
 
-from .models import (
+from .account_models import (
     AccountCapabilities,
     AccountListResponse,
     AccountRecord,
@@ -27,28 +27,28 @@ from .models import (
     PermissionCatalogResponse,
     PermissionGroupListResponse,
     PermissionGroupResponse,
-    RegisterRequest,
+    RegisterAccountRequest,
     SessionResponse,
 )
-from .permissions import PermissionEngine, PermissionRegistry
-from .security import PasswordService
-from .store import (
+from .account_store import (
     AccountConflictError,
     AccountNotFoundError,
+    AccountStore,
     InvalidPermissionGroupError,
     InvalidPermissionLevelError,
     LastSuperadminError,
     PermissionGroupConflictError,
     PermissionGroupNotFoundError,
     SuperadminImmutableError,
-    WebUiStore,
 )
+from .permissions import PermissionEngine, PermissionRegistry
+from .security import PasswordService
 
-DEFAULT_COOKIE_NAME = "medrag_nexus_account_session"
+DEFAULT_COOKIE_NAME = "medrag_nexus_webui_account_session"
 
 
 @dataclass(frozen=True, slots=True)
-class WebUiPrincipal:
+class AccountPrincipal:
     """由服务端 Session 推导的调用身份，请求体不能指定该值。"""
 
     account: AccountRecord
@@ -63,20 +63,20 @@ class WebUiPrincipal:
         return self.account.bound_user_id
 
 
-PrincipalDependency = Callable[..., Awaitable[WebUiPrincipal]]
+PrincipalDependency = Callable[..., Awaitable[AccountPrincipal]]
 
 
-def create_principal_dependency(store: WebUiStore, *, cookie_name: str = DEFAULT_COOKIE_NAME) -> PrincipalDependency:
+def create_principal_dependency(store: AccountStore, *, cookie_name: str = DEFAULT_COOKIE_NAME) -> PrincipalDependency:
     async def current_principal(
         session_token: str | None = Cookie(default=None, alias=cookie_name),
-    ) -> WebUiPrincipal:
+    ) -> AccountPrincipal:
         if not session_token:
-            raise _http_error(status.HTTP_401_UNAUTHORIZED, "authentication_required", "WebUI login is required")
+            raise _http_error(status.HTTP_401_UNAUTHORIZED, "authentication_required", "account login is required")
         account = await store.authenticate_session(session_token)
         if account is None:
             raise _http_error(status.HTTP_401_UNAUTHORIZED, "invalid_session", "session is invalid or expired")
         permissions = await store.permission_keys(account.account_id)
-        return WebUiPrincipal(account=account, permissions=frozenset(permissions))
+        return AccountPrincipal(account=account, permissions=frozenset(permissions))
 
     return current_principal
 
@@ -86,7 +86,7 @@ def require_permission(
     permission: str,
     engine: PermissionEngine,
 ) -> PrincipalDependency:
-    async def authorized(principal: Annotated[WebUiPrincipal, Depends(principal_dependency)]) -> WebUiPrincipal:
+    async def authorized(principal: Annotated[AccountPrincipal, Depends(principal_dependency)]) -> AccountPrincipal:
         if principal.account.must_change_password:
             raise _http_error(
                 status.HTTP_403_FORBIDDEN,
@@ -100,15 +100,15 @@ def require_permission(
     return authorized
 
 
-def create_webui_router(
-    store: WebUiStore,
+def create_account_router(
+    store: AccountStore,
     registry: PermissionRegistry | None = None,
     *,
     cookie_name: str = DEFAULT_COOKIE_NAME,
     cookie_secure: bool = False,
     session_ttl: timedelta = timedelta(hours=12),
 ) -> APIRouter:
-    """构建可通过 ``app.include_router(router)`` 挂载的 WebUI 路由。
+    """构建可通过 ``app.include_router(router)`` 挂载的后端账号路由。
 
     正常情况下应在应用生命周期中调用 ``await store.ensure()``。存储方法也会
     防御性地执行初始化，避免测试或小型嵌入场景误查尚未创建的表。
@@ -128,10 +128,10 @@ def create_webui_router(
     router = APIRouter(prefix=API_V1_PREFIX, tags=["认证与账号"])
 
     @router.post("/auth/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
-    async def register(payload: RegisterRequest, response: Response) -> SessionResponse:
+    async def register(payload: RegisterAccountRequest, response: Response) -> SessionResponse:
         encoded = await asyncio.to_thread(passwords.hash, payload.password)
         try:
-            account = await store.create_registered_account(
+            account = await store.register_account(
                 login_name=payload.login_name,
                 display_name=payload.display_name,
                 password_hash=encoded,
@@ -243,7 +243,7 @@ def create_webui_router(
         return MessageResponse()
 
     @router.get("/auth/me", response_model=SessionResponse)
-    async def me(principal: Annotated[WebUiPrincipal, Depends(principal_dependency)]) -> SessionResponse:
+    async def me(principal: Annotated[AccountPrincipal, Depends(principal_dependency)]) -> SessionResponse:
         return SessionResponse(
             account=AccountResponse.from_record(principal.account), permissions=sorted(principal.permissions)
         )
@@ -251,7 +251,7 @@ def create_webui_router(
     @router.post("/account/password", response_model=MessageResponse)
     async def change_password(
         payload: ChangePasswordRequest,
-        principal: Annotated[WebUiPrincipal, Depends(principal_dependency)],
+        principal: Annotated[AccountPrincipal, Depends(principal_dependency)],
     ) -> MessageResponse:
         if not engine.allows("webui.account.password.change_self", principal.permissions):
             raise _http_error(status.HTTP_403_FORBIDDEN, "permission_denied", "password change is not allowed")
@@ -277,7 +277,7 @@ def create_webui_router(
 
     @router.get("/accounts", response_model=AccountListResponse)
     async def list_accounts(
-        principal: Annotated[WebUiPrincipal, Depends(account_manage)],
+        principal: Annotated[AccountPrincipal, Depends(account_manage)],
     ) -> AccountListResponse:
         accounts = await store.list_accounts()
         permission_sets = await asyncio.gather(*(store.permission_keys(account.account_id) for account in accounts))
@@ -290,7 +290,7 @@ def create_webui_router(
     @router.post("/accounts", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)
     async def create_account(
         payload: AdminCreateAccountRequest,
-        principal: Annotated[WebUiPrincipal, Depends(account_create)],
+        principal: Annotated[AccountPrincipal, Depends(account_create)],
     ) -> AccountResponse:
         _require_superadmin(principal)
         _validate_admin_assignment(
@@ -324,7 +324,7 @@ def create_webui_router(
     async def patch_account(
         account_id: str,
         payload: AdminPatchAccountRequest,
-        principal: Annotated[WebUiPrincipal, Depends(account_manage)],
+        principal: Annotated[AccountPrincipal, Depends(account_manage)],
     ) -> AccountResponse:
         target = await store.get_account(account_id)
         if target is None:
@@ -357,7 +357,7 @@ def create_webui_router(
     async def reset_account_password(
         account_id: str,
         payload: AdminResetPasswordRequest,
-        principal: Annotated[WebUiPrincipal, Depends(password_reset)],
+        principal: Annotated[AccountPrincipal, Depends(password_reset)],
     ) -> MessageResponse:
         target = await store.get_account(account_id)
         if target is None:
@@ -383,13 +383,13 @@ def create_webui_router(
 
     @router.get("/permission-catalog", response_model=PermissionCatalogResponse)
     async def permission_catalog(
-        _principal: Annotated[WebUiPrincipal, Depends(catalog_read)],
+        _principal: Annotated[AccountPrincipal, Depends(catalog_read)],
     ) -> PermissionCatalogResponse:
         return await store.permission_catalog()
 
     @router.get("/permission-groups", response_model=PermissionGroupListResponse)
     async def list_permission_groups(
-        _principal: Annotated[WebUiPrincipal, Depends(catalog_read)],
+        _principal: Annotated[AccountPrincipal, Depends(catalog_read)],
     ) -> PermissionGroupListResponse:
         groups = await store.list_permission_groups()
         return PermissionGroupListResponse(groups=groups, total=len(groups))
@@ -397,7 +397,7 @@ def create_webui_router(
     @router.post("/permission-groups", response_model=PermissionGroupResponse, status_code=status.HTTP_201_CREATED)
     async def create_permission_group(
         payload: CreatePermissionGroupRequest,
-        principal: Annotated[WebUiPrincipal, Depends(group_manage)],
+        principal: Annotated[AccountPrincipal, Depends(group_manage)],
     ) -> PermissionGroupResponse:
         _require_superadmin(principal)
         try:
@@ -417,7 +417,7 @@ def create_webui_router(
     async def patch_permission_group(
         group_key: str,
         payload: PatchPermissionGroupRequest,
-        principal: Annotated[WebUiPrincipal, Depends(group_manage)],
+        principal: Annotated[AccountPrincipal, Depends(group_manage)],
     ) -> PermissionGroupResponse:
         _require_superadmin(principal)
         try:
@@ -434,7 +434,7 @@ def create_webui_router(
     @router.delete("/permission-groups/{group_key}", response_model=MessageResponse)
     async def delete_permission_group(
         group_key: str,
-        principal: Annotated[WebUiPrincipal, Depends(group_manage)],
+        principal: Annotated[AccountPrincipal, Depends(group_manage)],
     ) -> MessageResponse:
         _require_superadmin(principal)
         try:
@@ -448,7 +448,7 @@ def create_webui_router(
     @router.delete("/account/permission-groups/{group_key}", response_model=AccountResponse)
     async def leave_permission_group(
         group_key: str,
-        principal: Annotated[WebUiPrincipal, Depends(principal_dependency)],
+        principal: Annotated[AccountPrincipal, Depends(principal_dependency)],
     ) -> AccountResponse:
         """当前账号只能退出自己的自定义权限组。"""
 
@@ -465,7 +465,7 @@ def create_webui_router(
 
     @router.get("/audit-events", response_model=AuditEventListResponse)
     async def list_audit_events(
-        _principal: Annotated[WebUiPrincipal, Depends(audit_read)],
+        _principal: Annotated[AccountPrincipal, Depends(audit_read)],
         limit: int = Query(default=100, ge=1, le=500),
         offset: int = Query(default=0, ge=0),
     ) -> AuditEventListResponse:
@@ -477,7 +477,7 @@ def create_webui_router(
 
 def _validate_admin_assignment(
     *,
-    actor: WebUiPrincipal,
+    actor: AccountPrincipal,
     requested_level: int,
     requested_groups: list[str],
     engine: PermissionEngine,
@@ -502,7 +502,7 @@ def _validate_admin_assignment(
         raise _http_error(status.HTTP_403_FORBIDDEN, "permission_denied", "cannot create or promote a superadmin")
 
 
-def _require_superadmin(principal: WebUiPrincipal) -> None:
+def _require_superadmin(principal: AccountPrincipal) -> None:
     if principal.account.permission_level != 1000:
         raise _http_error(
             status.HTTP_403_FORBIDDEN,
@@ -522,7 +522,7 @@ def _reject_superadmin_target(target: AccountRecord) -> None:
 
 def _account_response(
     account: AccountRecord,
-    actor: WebUiPrincipal,
+    actor: AccountPrincipal,
     permissions: set[str] | frozenset[str] = frozenset(),
 ) -> AccountResponse:
     protected = account.permission_level == 1000
@@ -538,7 +538,7 @@ def _account_response(
     return response
 
 
-def _validate_target_level(actor: WebUiPrincipal, target: AccountRecord) -> None:
+def _validate_target_level(actor: AccountPrincipal, target: AccountRecord) -> None:
     """管理员只能操作权限等级不高于自己的账号，同级允许。"""
 
     if target.permission_level > actor.account.permission_level:

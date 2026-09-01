@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 import httpx
 
-from medrag_nexus.webui.router import DEFAULT_COOKIE_NAME
+from medrag_nexus.backend.account_router import DEFAULT_COOKIE_NAME
 
 from .artifacts import ArtifactService
 from .context import AgentContext
@@ -60,9 +60,7 @@ def secure_input(action_id: str, tool_name: str) -> dict[str, Any]:
         ]
         title = "修改密码"
     else:
-        fields = [
-            {"name": "new_password", "label": "新密码", "min_length": 3, "autocomplete": "new-password"}
-        ]
+        fields = [{"name": "new_password", "label": "新密码", "min_length": 3, "autocomplete": "new-password"}]
         title = "设置账号密码"
     return {
         "action_id": action_id,

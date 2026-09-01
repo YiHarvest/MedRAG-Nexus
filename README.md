@@ -248,7 +248,7 @@ docker compose stop redis
 
 ## WebUI - 账号、权限与知识助手
 
-WebUI 使用 Next.js 16 与 Carbon Design System。浏览器只提交账号 Session；知识身份、Workspace 权限和 Agent 工具能力由服务端 BFF 决定并再次校验。
+WebUI 使用 Next.js 16 与 Carbon Design System。浏览器只调用后端注册和业务 API；知识身份、Workspace 权限和 Agent 工具能力全部由 Python 后端决定并再次校验。
 
 - 支持 PDF、TXT、DOCX 拖拽上传与普通文本入库，并展示异步任务进度。
 - 支持知识域、Workspace、文件、字符串、检索与聊天。
@@ -290,7 +290,7 @@ REST 业务接口统一使用 `/api/v1/*`，由后端账号 Session、权限节�
 | MCP | `get_task` | 查询异步任务 |
 | MCP | `retrieve` | 混合检索 |
 
-前端创建账号、知识域和知识库时只提交业务字段；账号 ID、默认知识域 ID 和 Workspace ID 由后端生成并持久化。新增和删除通过任务接口查询状态。文件和字符串分别按 SHA-256 去重；文件 ID 创建后保持稳定。
+前端注册账号、知识域和知识库时只提交允许的业务字段；`account_id`、`user_id` 和 `workspace_id` 由后端生成并持久化，知识域注册接口拒绝调用方传入 `user_id`。账号 Session Cookie 为 `medrag_nexus_webui_account_session`。新增和删除通过任务接口查询状态。文件和字符串分别按 SHA-256 去重；文件 ID 创建后保持稳定。
 
 > [!WARNING]
 > `/mcp` 继续服务受信任的 AgentHub 集成，授权边界独立于 REST Session。不要把 MCP 入口直接暴露到不可信网络。
@@ -388,12 +388,12 @@ API Key、密码、Cookie、上传正文和检索命中文本不会写入日志�
 
 | Package / Directory | Description |
 | --- | --- |
-| `src/medrag_nexus/api` | FastAPI 装配、公开路由、文档和 HTTP 基础设施 |
+| `src/medrag_nexus/api` | FastAPI 装配、路由、文档和 HTTP 基础设施 |
+| `src/medrag_nexus/backend` | 后端账号注册、Session、权限、知识域、知识库、ACL、审计和 Agent |
 | `src/medrag_nexus/mcp` | FastMCP Streamable HTTP 与 AgentHub 工具 |
 | `src/medrag_nexus/services` | Runtime、Worker、任务、检索、处理、回调和维护 |
 | `src/medrag_nexus/storage` | SQLite、Redis、Elasticsearch、Milvus 与文件制品 |
 | `src/medrag_nexus/pipeline` | 解析、Markdown、切块与融合模型 |
-| `src/medrag_nexus/webui` | 账号、Session、权限、ACL、审计和 Agent BFF |
 | `frontend` | Next.js 16 + React 19 + Carbon Design System |
 | `skills/medrag-nexus` | AgentHub Skill 与 API/MCP 契约 |
 | `scripts` | 锁定安装、一键启动和一键停止 |

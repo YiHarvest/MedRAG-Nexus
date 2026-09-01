@@ -1,4 +1,4 @@
-"""按权限过滤的项目 WebUI 专用 BFF。"""
+"""后端知识域、知识库、资源、检索与聊天 API。"""
 
 from __future__ import annotations
 
@@ -40,8 +40,10 @@ from medrag_nexus.services.health import dependency_health
 from medrag_nexus.services.retrieval import retrieve
 from medrag_nexus.services.runtime import Runtime
 
+from .account_models import AccountRecord
+from .account_router import DEFAULT_COOKIE_NAME, AccountPrincipal, create_principal_dependency
+from .account_store import AccountBindingError, AccountStore
 from .agent.context import AgentContext
-from .models import AccountRecord
 from .policy_store import (
     USER_POLICY_ACTIONS,
     WORKSPACE_POLICY_ACTIONS,
@@ -49,8 +51,6 @@ from .policy_store import (
     KnowledgePolicyStore,
     PolicyBinding,
 )
-from .router import DEFAULT_COOKIE_NAME, WebUiPrincipal, create_principal_dependency
-from .store import AccountBindingError, WebUiStore
 
 WorkspaceName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
@@ -107,15 +107,14 @@ class AccessibleKnowledgeResponse(APIModel):
     workspaces: list[AccessibleWorkspace]
 
 
-class CreateWorkspaceRequest(APIModel):
+class RegisterKnowledgeBaseRequest(APIModel):
     user_id: Identifier
     workspace_name: WorkspaceName
     read_min_level: int = Field(default=0, ge=0)
     cud_min_level: int = Field(default=0, ge=0)
 
 
-class CreateKnowledgeUserRequest(APIModel):
-    user_id: Identifier | None = None
+class RegisterKnowledgeDomainRequest(APIModel):
     user_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
     read_min_level: int = Field(default=0, ge=0)
     workspace_create_min_level: int = Field(default=0, ge=0)
@@ -174,13 +173,13 @@ class PolicyBindingsResponse(APIModel):
     bindings: dict[str, list[PolicyBindingItem]]
 
 
-class WebUiRetrievalRequest(APIModel):
+class KnowledgeRetrievalRequest(APIModel):
     workspace_id: str
     query: str = Field(min_length=1, max_length=10_000)
     top_k: int | None = Field(default=None, ge=1)
 
 
-class WebUiChatRequest(APIModel):
+class KnowledgeChatRequest(APIModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=20)
     top_k: int = Field(default=8, ge=1, le=20)
     conversation_id: str | None = Field(default=None, max_length=128)
@@ -215,7 +214,7 @@ class DeleteKnowledgeUserResponse(APIModel):
 
 def create_knowledge_router(
     runtime: Runtime,
-    webui_store: WebUiStore,
+    account_store: AccountStore,
     policies: KnowledgePolicyStore,
     *,
     cookie_name: str = DEFAULT_COOKIE_NAME,
@@ -223,14 +222,14 @@ def create_knowledge_router(
     agent_registry: Any | None = None,
     agent_capabilities: Any | None = None,
 ) -> APIRouter:
-    principal_dependency = create_principal_dependency(webui_store, cookie_name=cookie_name)
-    allowed_levels = frozenset(level.value for level in webui_store.registry.levels)
+    principal_dependency = create_principal_dependency(account_store, cookie_name=cookie_name)
+    allowed_levels = frozenset(level.value for level in account_store.registry.levels)
     router = APIRouter(prefix=API_V1_PREFIX, tags=["知识域与知识库"])
     principal_dependency_dep = Depends(principal_dependency)
 
     async def principal(
-        value: WebUiPrincipal = principal_dependency_dep,
-    ) -> WebUiPrincipal:
+        value: AccountPrincipal = principal_dependency_dep,
+    ) -> AccountPrincipal:
         if value.account.must_change_password:
             raise _error(
                 status.HTTP_403_FORBIDDEN,
@@ -241,12 +240,12 @@ def create_knowledge_router(
 
     principal_dep = Depends(principal)
 
-    def require_superadmin(caller: WebUiPrincipal, permission: str) -> None:
+    def require_superadmin(caller: AccountPrincipal, permission: str) -> None:
         if caller.account.permission_level < 1000 or permission not in caller.permissions:
             raise _error(status.HTTP_403_FORBIDDEN, "permission_denied", "superadmin permission is required")
 
     async def require_workspace(
-        caller: WebUiPrincipal,
+        caller: AccountPrincipal,
         workspace_id: str,
         *,
         action: str,
@@ -276,7 +275,7 @@ def create_knowledge_router(
             raise _error(status.HTTP_404_NOT_FOUND, "workspace_not_found", "workspace does not exist")
         return workspace
 
-    async def require_user_policy_scope(caller: WebUiPrincipal, user_id: str) -> None:
+    async def require_user_policy_scope(caller: AccountPrincipal, user_id: str) -> None:
         """要求调用者同时具备策略节点权限与目标 UserID 的可见范围。"""
 
         known_users = {user.user_id for user in (await runtime.metadata.list_users()).users}
@@ -322,7 +321,7 @@ def create_knowledge_router(
     async def replace_account_bindings(
         target: AccountRecord,
         user_ids: list[str],
-        caller: WebUiPrincipal,
+        caller: AccountPrincipal,
     ) -> AccountRecord:
         """保存普通账号多知识域绑定，并同步全部系统管理 ACL。"""
 
@@ -336,7 +335,7 @@ def create_knowledge_router(
         scope = await account_binding_scope(normalized)
         before = list(target.bound_user_ids)
         try:
-            updated = await webui_store.set_account_user_bindings(
+            updated = await account_store.set_account_user_bindings(
                 target.account_id,
                 normalized,
                 actor_account_id=caller.account_id,
@@ -350,7 +349,7 @@ def create_knowledge_router(
                 for workspace_id in workspace_ids:
                     await policies.ensure_resource_acl("workspace", workspace_id, user_id=user_id)
         except Exception:
-            await webui_store.set_account_user_bindings(
+            await account_store.set_account_user_bindings(
                 target.account_id,
                 before,
                 actor_account_id=caller.account_id,
@@ -366,12 +365,12 @@ def create_knowledge_router(
             if binding.effect != "allow":
                 continue
             if binding.principal_type == "account":
-                target = await webui_store.get_account(binding.principal_id)
-                permissions = await webui_store.permission_keys(binding.principal_id) if target is not None else set()
+                target = await account_store.get_account(binding.principal_id)
+                permissions = await account_store.permission_keys(binding.principal_id) if target is not None else set()
             else:
                 if group_permissions is None:
                     group_permissions = {
-                        group.key: set(group.permissions) for group in await webui_store.list_permission_groups()
+                        group.key: set(group.permissions) for group in await account_store.list_permission_groups()
                     }
                 permissions = group_permissions.get(binding.principal_id, set())
             if action not in permissions:
@@ -382,7 +381,7 @@ def create_knowledge_router(
                     f"所选{subject}本身没有此操作权限，不能建立无效授权",
                 )
 
-    async def workspace_item(caller: WebUiPrincipal, workspace: WorkspaceRecord) -> AccessibleWorkspace:
+    async def workspace_item(caller: AccountPrincipal, workspace: WorkspaceRecord) -> AccessibleWorkspace:
         policy = await policies.get_workspace_policy(workspace.workspace_id)
         permissions = set(caller.permissions)
 
@@ -423,11 +422,11 @@ def create_knowledge_router(
         )
 
     @router.post("/users", status_code=status.HTTP_201_CREATED)
-    async def create_knowledge_user(
-        payload: CreateKnowledgeUserRequest,
-        caller: WebUiPrincipal = principal_dep,
+    async def register_knowledge_domain(
+        payload: RegisterKnowledgeDomainRequest,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, Any]:
-        """创建与登录用户分离的知识域。"""
+        """注册知识域；标识由后端生成，调用方不能指定。"""
 
         if "webui.user.create" not in caller.permissions:
             raise _error(status.HTTP_403_FORBIDDEN, "permission_denied", "knowledge domain creation is not allowed")
@@ -445,7 +444,7 @@ def create_knowledge_router(
                     "permission_denied",
                     "default knowledge domain binding is not allowed",
                 )
-            target_account = await webui_store.get_account(payload.bind_account_id)
+            target_account = await account_store.get_account(payload.bind_account_id)
             if target_account is None:
                 raise _error(status.HTTP_404_NOT_FOUND, "account_not_found", "account does not exist")
             if target_account.permission_level >= 1000:
@@ -454,7 +453,7 @@ def create_knowledge_router(
                     "superadmin_binding_unnecessary",
                     "超级管理员固定拥有全部知识域权限，不需要绑定知识域",
                 )
-        user_id = payload.user_id or f"user_{uuid4().hex}"
+        user_id = f"user_{uuid4().hex}"
         created = await runtime.metadata.create_user(user_id, payload.user_name)
         if created is None:
             raise _error(status.HTTP_409_CONFLICT, "user_id_conflict", "knowledge user already exists")
@@ -474,7 +473,7 @@ def create_knowledge_router(
                     caller,
                 )
         except AccountBindingError as exc:
-            await webui_store.record_audit(
+            await account_store.record_audit(
                 actor_account_id=caller.account_id,
                 action="webui.user.create.binding_failed",
                 resource_type="user",
@@ -484,7 +483,7 @@ def create_knowledge_router(
             raise _error(status.HTTP_409_CONFLICT, "account_binding_conflict", str(exc)) from exc
         except Exception:
             # SQLiteStore 暂无删除空 UserID API；保留空用户并让审计暴露失败，避免直接操作公共表。
-            await webui_store.record_audit(
+            await account_store.record_audit(
                 actor_account_id=caller.account_id,
                 action="webui.user.create.failed",
                 resource_type="user",
@@ -492,7 +491,7 @@ def create_knowledge_router(
                 after={"user_name": payload.user_name},
             )
             raise
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.user.create",
             resource_type="user",
@@ -513,12 +512,12 @@ def create_knowledge_router(
     async def bind_account_to_knowledge_user(
         account_id: str,
         payload: AccountKnowledgeBindingRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, Any]:
         """增加或移除普通账号的一个知识域绑定。"""
 
         require_superadmin(caller, "webui.user.binding.manage")
-        target = await webui_store.get_account(account_id)
+        target = await account_store.get_account(account_id)
         if target is None:
             raise _error(status.HTTP_404_NOT_FOUND, "account_not_found", "account does not exist")
         next_user_ids = set(target.bound_user_ids)
@@ -529,7 +528,7 @@ def create_knowledge_router(
         else:
             next_user_ids.discard(payload.user_id)
         updated = await replace_account_bindings(target, sorted(next_user_ids), caller)
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.account.knowledge_binding.update",
             resource_type="account",
@@ -547,12 +546,12 @@ def create_knowledge_router(
     async def replace_account_knowledge_bindings(
         account_id: str,
         payload: AccountKnowledgeBindingsRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, Any]:
         """替换普通账号的全部知识域绑定。"""
 
         require_superadmin(caller, "webui.user.binding.manage")
-        target = await webui_store.get_account(account_id)
+        target = await account_store.get_account(account_id)
         if target is None:
             raise _error(status.HTTP_404_NOT_FOUND, "account_not_found", "account does not exist")
         updated = await replace_account_bindings(target, list(payload.user_ids), caller)
@@ -564,7 +563,7 @@ def create_knowledge_router(
 
     @router.get("/workspaces", response_model=AccessibleKnowledgeResponse)
     async def list_accessible_workspaces(
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> AccessibleKnowledgeResponse:
         permissions = set(caller.permissions)
         visible_users: list[AccessibleUser] = []
@@ -645,7 +644,7 @@ def create_knowledge_router(
     @router.delete("/users/{user_id}/access")
     async def leave_knowledge_user(
         user_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, str]:
         """退出知识域；个人拒绝规则会同步阻断其下知识库与 Agent 检索。"""
 
@@ -669,7 +668,7 @@ def create_knowledge_router(
             raise _error(status.HTTP_409_CONFLICT, "resource_access_immutable", str(exc)) from exc
         if user_id in caller.account.bound_user_ids:
             remaining = [item for item in caller.account.bound_user_ids if item != user_id]
-            await webui_store.set_account_user_bindings(
+            await account_store.set_account_user_bindings(
                 caller.account_id,
                 remaining,
                 actor_account_id=caller.account_id,
@@ -678,7 +677,7 @@ def create_knowledge_router(
                 caller.account_id,
                 await account_binding_scope(remaining),
             )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.user.access.leave_self",
             resource_type="user",
@@ -691,7 +690,7 @@ def create_knowledge_router(
     @router.delete("/workspaces/{workspace_id}/access")
     async def leave_workspace(
         workspace_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, str]:
         """退出单个知识库，并覆盖账号从权限组继承的该库权限。"""
 
@@ -709,7 +708,7 @@ def create_knowledge_router(
             )
         except InvalidPolicyBindingError as exc:
             raise _error(status.HTTP_409_CONFLICT, "resource_access_immutable", str(exc)) from exc
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.workspace.access.leave_self",
             resource_type="workspace",
@@ -723,7 +722,7 @@ def create_knowledge_router(
     async def rename_knowledge_user(
         user_id: str,
         payload: RenameKnowledgeUserRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, Any]:
         """仅修改知识域展示名称，不改变 UserID 和其下知识库。"""
 
@@ -743,7 +742,7 @@ def create_knowledge_router(
         if before is None:
             raise _error(status.HTTP_404_NOT_FOUND, "user_not_found", "knowledge user does not exist")
         renamed = await runtime.metadata.rename_user(user_id, payload.user_name)
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.user.rename",
             resource_type="user",
@@ -754,10 +753,11 @@ def create_knowledge_router(
         return renamed.model_dump(mode="json")
 
     @router.post("/workspaces", response_model=AccessibleWorkspace, status_code=status.HTTP_201_CREATED)
-    async def create_workspace(
-        payload: CreateWorkspaceRequest,
-        caller: WebUiPrincipal = principal_dep,
+    async def register_knowledge_base(
+        payload: RegisterKnowledgeBaseRequest,
+        caller: AccountPrincipal = principal_dep,
     ) -> AccessibleWorkspace:
+        """在已有知识域下注册知识库；知识库标识由后端生成。"""
         known_users = {user.user_id for user in (await runtime.metadata.list_users()).users}
         if payload.user_id not in known_users:
             raise _error(status.HTTP_404_NOT_FOUND, "user_not_found", "knowledge user does not exist")
@@ -797,7 +797,7 @@ def create_knowledge_router(
                 await runtime.metadata.delete_workspace(workspace.workspace_id)
             await policies.delete_workspace_policy_data(workspace.workspace_id)
             raise
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.workspace.create",
             resource_type="workspace",
@@ -810,7 +810,7 @@ def create_knowledge_router(
     async def rename_workspace(
         workspace_id: str,
         payload: RenameWorkspaceRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> AccessibleWorkspace:
         workspace = await require_workspace(
             caller,
@@ -834,7 +834,7 @@ def create_knowledge_router(
                 restored = await runtime.metadata.rename_workspace(workspace_id, workspace.workspace_name)
                 await runtime.elasticsearch.rename_workspace(restored)
                 raise
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.workspace.rename",
             resource_type="workspace",
@@ -848,7 +848,7 @@ def create_knowledge_router(
     async def update_workspace_policy(
         workspace_id: str,
         payload: WorkspacePolicyRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> AccessibleWorkspace:
         workspace = await require_workspace(
             caller,
@@ -864,7 +864,7 @@ def create_knowledge_router(
             cud_min_level=payload.cud_min_level,
             actor_account_id=caller.account_id,
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.workspace.policy.update",
             resource_type="workspace",
@@ -878,7 +878,7 @@ def create_knowledge_router(
     async def update_user_policy(
         user_id: str,
         payload: UserPolicyRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> dict[str, Any]:
         await require_user_policy_scope(caller, user_id)
         _validate_thresholds(
@@ -894,7 +894,7 @@ def create_knowledge_router(
             workspace_create_min_level=payload.workspace_create_min_level,
             actor_account_id=caller.account_id,
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.user.policy.update",
             resource_type="user",
@@ -907,7 +907,7 @@ def create_knowledge_router(
     @router.get("/users/{user_id}/bindings", response_model=PolicyBindingsResponse)
     async def get_user_bindings(
         user_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> PolicyBindingsResponse:
         await require_user_policy_scope(caller, user_id)
         values = await policies.list_bindings("user", user_id, USER_POLICY_ACTIONS)
@@ -917,7 +917,7 @@ def create_knowledge_router(
     async def update_user_bindings(
         user_id: str,
         payload: PolicyBindingsUpdateRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> PolicyBindingsResponse:
         await require_user_policy_scope(caller, user_id)
         if payload.action not in USER_POLICY_ACTIONS:
@@ -953,7 +953,7 @@ def create_knowledge_router(
             )
         except InvalidPolicyBindingError as exc:
             raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_policy_binding", str(exc)) from exc
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.user.bindings.update",
             resource_type="user",
@@ -966,7 +966,7 @@ def create_knowledge_router(
     @router.get("/workspaces/{workspace_id}/bindings", response_model=PolicyBindingsResponse)
     async def get_workspace_bindings(
         workspace_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> PolicyBindingsResponse:
         await require_workspace(
             caller,
@@ -981,7 +981,7 @@ def create_knowledge_router(
     async def update_workspace_bindings(
         workspace_id: str,
         payload: PolicyBindingsUpdateRequest,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> PolicyBindingsResponse:
         await require_workspace(
             caller,
@@ -1030,7 +1030,7 @@ def create_knowledge_router(
             )
         except InvalidPolicyBindingError as exc:
             raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_policy_binding", str(exc)) from exc
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.workspace.bindings.update",
             resource_type="workspace",
@@ -1043,7 +1043,7 @@ def create_knowledge_router(
     @router.delete("/workspaces/{workspace_id}", response_model=DeleteWorkspaceResponse)
     async def delete_workspace(
         workspace_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
         confirm_name: str = Query(min_length=1, max_length=128),
     ) -> DeleteWorkspaceResponse:
         workspace = await require_workspace(
@@ -1154,7 +1154,7 @@ def create_knowledge_router(
                 if not metadata_deleted and not cleanup_pending:
                     raise
         result_status: Literal["deleted", "cleanup_pending"] = "cleanup_pending" if cleanup_pending else "deleted"
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.workspace.delete",
             resource_type="workspace",
@@ -1167,7 +1167,7 @@ def create_knowledge_router(
     @router.delete("/users/{user_id}", response_model=DeleteKnowledgeUserResponse)
     async def delete_knowledge_user(
         user_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
         confirm_name: str = Query(min_length=1, max_length=128),
     ) -> DeleteKnowledgeUserResponse:
         """级联删除知识域、其下全部 Workspace、默认绑定与策略。"""
@@ -1215,7 +1215,7 @@ def create_knowledge_router(
                 summary.workspace_name,
             )
             if result.status == "cleanup_pending":
-                await webui_store.record_audit(
+                await account_store.record_audit(
                     actor_account_id=caller.account_id,
                     action="webui.user.delete.cleanup_pending",
                     resource_type="user",
@@ -1233,10 +1233,10 @@ def create_knowledge_router(
         cleanup_user_artifacts = getattr(runtime.artifacts, "delete_user_artifacts", None)
         if cleanup_user_artifacts is not None:
             await cleanup_user_artifacts(user_id)
-        for account in await webui_store.list_accounts():
+        for account in await account_store.list_accounts():
             if user_id in account.bound_user_ids:
                 remaining = [item for item in account.bound_user_ids if item != user_id]
-                await webui_store.set_account_user_bindings(
+                await account_store.set_account_user_bindings(
                     account.account_id,
                     remaining,
                     actor_account_id=caller.account_id,
@@ -1247,8 +1247,8 @@ def create_knowledge_router(
                 )
         await policies.delete_user_policy_data(user_id)
         await runtime.metadata.delete_user(user_id)
-        await webui_store.remove_user_bindings(user_id)
-        await webui_store.record_audit(
+        await account_store.remove_user_bindings(user_id)
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.user.delete",
             resource_type="user",
@@ -1265,7 +1265,7 @@ def create_knowledge_router(
     @router.get("/workspaces/{workspace_id}/files", response_model=FileListResponse)
     async def list_files(
         workspace_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
         include_string_content: bool = False,
     ) -> FileListResponse:
         workspace = await require_workspace(
@@ -1284,7 +1284,7 @@ def create_knowledge_router(
     async def get_file_detail(
         workspace_id: str,
         file_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> FileDetailResponse:
         await require_workspace(
             caller,
@@ -1323,7 +1323,7 @@ def create_knowledge_router(
     async def download_file(
         workspace_id: str,
         file_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> FileResponse:
         workspace = await require_workspace(
             caller,
@@ -1338,7 +1338,7 @@ def create_knowledge_router(
             target = runtime.artifacts.raw_file_path(resource)
         except FileNotFoundError as exc:
             raise _error(status.HTTP_404_NOT_FOUND, "file_not_found", "raw file is unavailable") from exc
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.resource.file.download",
             resource_type="file",
@@ -1359,7 +1359,7 @@ def create_knowledge_router(
     async def add_resource(
         workspace_id: str,
         request: Request,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> TaskAccepted:
         _verify_same_origin(request)
         form = await request.form()
@@ -1406,7 +1406,7 @@ def create_knowledge_router(
                 source=source,
             )
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.resource.add.submit",
             resource_type="workspace",
@@ -1420,7 +1420,7 @@ def create_knowledge_router(
         workspace_id: str,
         file_id: str,
         request: Request,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> TaskAccepted:
         _verify_same_origin(request)
         workspace = await require_workspace(
@@ -1440,7 +1440,7 @@ def create_knowledge_router(
                 file_name=resource.file_name,
             )
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.resource.file_delete.submit",
             resource_type="file",
@@ -1455,7 +1455,7 @@ def create_knowledge_router(
         workspace_id: str,
         content_hash: str,
         request: Request,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> TaskAccepted:
         _verify_same_origin(request)
         workspace = await require_workspace(
@@ -1471,7 +1471,7 @@ def create_knowledge_router(
                 content_hash=content_hash,
             )
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.resource.string_delete.submit",
             resource_type="string",
@@ -1483,8 +1483,8 @@ def create_knowledge_router(
 
     @router.post("/retrieval", response_model=RetrievalResponse)
     async def webui_retrieval(
-        payload: WebUiRetrievalRequest,
-        caller: WebUiPrincipal = principal_dep,
+        payload: KnowledgeRetrievalRequest,
+        caller: AccountPrincipal = principal_dep,
     ) -> RetrievalResponse:
         if "webui.retrieval.use" not in caller.permissions:
             raise _error(status.HTTP_403_FORBIDDEN, "permission_denied", "retrieval is not allowed")
@@ -1503,7 +1503,7 @@ def create_knowledge_router(
                 top_k=payload.top_k,
             ),
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.retrieval.use",
             resource_type="workspace",
@@ -1514,9 +1514,9 @@ def create_knowledge_router(
 
     @router.post("/chat/stream", response_class=StreamingResponse)
     async def webui_chat(
-        payload: WebUiChatRequest,
+        payload: KnowledgeChatRequest,
         request: Request,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> StreamingResponse:
         if "webui.chat.use" not in caller.permissions:
             raise _error(status.HTTP_403_FORBIDDEN, "permission_denied", "chat is not allowed")
@@ -1551,7 +1551,7 @@ def create_knowledge_router(
             top_k=payload.top_k,
             conversation_id=conversation_id,
         )
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.chat.use",
             resource_type="agent",
@@ -1565,19 +1565,19 @@ def create_knowledge_router(
         if agent_registry is not None:
             session_token = request.cookies.get(cookie_name)
 
-            async def resolve_principal() -> WebUiPrincipal:
+            async def resolve_principal() -> AccountPrincipal:
                 if not session_token:
                     raise _error(status.HTTP_401_UNAUTHORIZED, "session_required", "session is required")
-                account = await webui_store.authenticate_session(session_token)
+                account = await account_store.authenticate_session(session_token)
                 if account is None:
                     raise _error(status.HTTP_401_UNAUTHORIZED, "invalid_session", "session is invalid")
-                permissions = await webui_store.permission_keys(account.account_id)
-                return WebUiPrincipal(account=account, permissions=frozenset(permissions))
+                permissions = await account_store.permission_keys(account.account_id)
+                return AccountPrincipal(account=account, permissions=frozenset(permissions))
 
             context = AgentContext(
                 principal=caller,
                 runtime=runtime,
-                store=webui_store,
+                store=account_store,
                 policies=policies,
                 resolve_principal=resolve_principal,
                 conversation_id=conversation_id,
@@ -1603,7 +1603,7 @@ def create_knowledge_router(
     @router.get("/tasks/{task_id}", response_model=TaskResponse)
     async def get_task(
         task_id: str,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> TaskResponse:
         record = await runtime.metadata.get_task(task_id)
         if record is None:
@@ -1620,7 +1620,7 @@ def create_knowledge_router(
     async def cancel_task(
         task_id: str,
         request: Request,
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> TaskResponse:
         """取消当前账号有权写入的排队中或执行中的入库任务。"""
 
@@ -1648,7 +1648,7 @@ def create_knowledge_router(
             permission=permission,
         )
         response = await FileService(runtime).cancel_ingestion(task_id, record.user_id)
-        await webui_store.record_audit(
+        await account_store.record_audit(
             actor_account_id=caller.account_id,
             action="webui.resource.ingestion.cancel",
             resource_type="task",
@@ -1660,7 +1660,7 @@ def create_knowledge_router(
 
     @router.get("/system/health", response_model=HealthResponse)
     async def system_health(
-        caller: WebUiPrincipal = principal_dep,
+        caller: AccountPrincipal = principal_dep,
     ) -> HealthResponse:
         if "webui.system.read" not in caller.permissions:
             raise _error(status.HTTP_403_FORBIDDEN, "permission_denied", "system health is not allowed")
@@ -1670,7 +1670,7 @@ def create_knowledge_router(
 
 
 def _validate_thresholds(
-    caller: WebUiPrincipal,
+    caller: AccountPrincipal,
     *levels: int,
     allowed_levels: frozenset[int],
 ) -> None:

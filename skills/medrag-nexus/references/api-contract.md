@@ -9,7 +9,7 @@
 | POST | `/api/v1/auth/register` | 后端注册账号、生成账号 ID、创建 Session |
 | POST | `/api/v1/auth/login` | 登录并创建 Session |
 | GET | `/api/v1/auth/me` | 返回当前账号和权限 |
-| POST | `/api/v1/users` | 创建知识域；未传 `user_id` 时由后端生成 |
+| POST | `/api/v1/users` | 注册知识域；`user_id` 只能由后端生成 |
 | POST | `/api/v1/workspaces` | 创建 Workspace，`workspace_id` 由后端生成 |
 | GET | `/api/v1/workspaces` | 按 Session、权限和 ACL 返回可见知识域与 Workspace |
 | POST | `/api/v1/workspaces/{workspace_id}/resources` | multipart 新增文件或字符串，返回 `202 {task_id}` |
@@ -22,6 +22,6 @@
 
 资源新增使用 multipart：`type=file` 时传二进制 `file`；`type=str` 时传 `content`。`user_id` 从目标 Workspace 的后端记录推导，不接受前端用请求体越权指定。
 
-账号注册、知识域创建和 Workspace 创建都由 Python 后端校验、生成标识并持久化；前端模块只是调用封装。MCP 保留独立工具契约，不能把 MCP 的调用方 ID 规则套用到 REST 业务接口。
+账号、知识域和 Workspace 注册都由 Python 后端校验、生成标识并持久化；前端模块只是调用封装。REST 知识域注册不接受 `user_id`，Workspace 注册不接受 `workspace_id`。MCP 保留独立工具契约，不能把 MCP 的调用方 ID 规则套用到 REST 业务接口。
 
 受保护路由的认证错误使用 `{detail:{code,message}}`；通用基础设施错误使用 `{error:{code,message,request_id,details?}}`。完整路由和模型以运行时 `/docs` 与 `/openapi.json` 为准。

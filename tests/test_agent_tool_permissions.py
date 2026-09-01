@@ -6,25 +6,25 @@ from types import SimpleNamespace
 
 import pytest
 
-from medrag_nexus.webui.agent.context import AgentAuthorizationError, AgentContext
-from medrag_nexus.webui.agent.registry import AgentToolRegistry, ToolSpec, object_schema
-from medrag_nexus.webui.agent.tools import build_default_agent_tool_registry
-from medrag_nexus.webui.agent.tools import read as read_tools
-from medrag_nexus.webui.agent.tools.read import get_file_details, list_files, prepare_file_download
-from medrag_nexus.webui.router import WebUiPrincipal
+from medrag_nexus.backend.account_router import AccountPrincipal
+from medrag_nexus.backend.agent.context import AgentAuthorizationError, AgentContext
+from medrag_nexus.backend.agent.registry import AgentToolRegistry, ToolSpec, object_schema
+from medrag_nexus.backend.agent.tools import build_default_agent_tool_registry
+from medrag_nexus.backend.agent.tools import read as read_tools
+from medrag_nexus.backend.agent.tools.read import get_file_details, list_files, prepare_file_download
 
 
-def principal(*permissions: str, level: int = 0, enabled: bool = True) -> WebUiPrincipal:
+def principal(*permissions: str, level: int = 0, enabled: bool = True) -> AccountPrincipal:
     account = SimpleNamespace(
         account_id="account-1",
         permission_level=level,
         enabled=enabled,
         must_change_password=False,
     )
-    return WebUiPrincipal(account=account, permissions=frozenset(permissions))
+    return AccountPrincipal(account=account, permissions=frozenset(permissions))
 
 
-def context(initial: WebUiPrincipal, resolver):
+def context(initial: AccountPrincipal, resolver):
     return AgentContext(
         principal=initial,
         runtime=SimpleNamespace(),
@@ -101,9 +101,7 @@ async def test_registry_records_permissions_and_resources_for_later_export():
     async def handler(_context, _arguments):
         return {"citations": [{"workspace_id": "workspace-1"}]}
 
-    registry = AgentToolRegistry(
-        [ToolSpec("read_audit", "读取审计", object_schema(), handler, ("webui.audit.read",))]
-    )
+    registry = AgentToolRegistry([ToolSpec("read_audit", "读取审计", object_schema(), handler, ("webui.audit.read",))])
     agent_context = context(granted, resolve)
 
     await registry.execute("read_audit", {}, agent_context)
@@ -422,14 +420,14 @@ async def test_create_knowledge_user_only_creates_click_confirmation():
     registry = build_default_agent_tool_registry()
     result = await registry.execute(
         "create_knowledge_user",
-        {"user_id": "computer-domain", "user_name": "计算机域"},
+        {"user_name": "计算机域"},
         agent_context,
     )
 
     assert result == {
         "status": "confirmation_required",
         "tool_name": "create_knowledge_user",
-        "arguments": {"user_id": "computer-domain", "user_name": "计算机域"},
+        "arguments": {"user_name": "计算机域"},
         "required_permissions": ["webui.user.create"],
         "risk_level": "write",
         "confirmation_mode": "click",

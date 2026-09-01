@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 import medrag_nexus.services.chat as chat_module
+from medrag_nexus.backend.agent.context import AgentAuthorizationError
 from medrag_nexus.core.models import ChatRequest, WorkspaceRecord, local_now
 from medrag_nexus.services.chat import (
     _TOOLS,
@@ -16,7 +17,6 @@ from medrag_nexus.services.chat import (
     _parse_dsml_tool_calls,
     _webui_system_prompt,
 )
-from medrag_nexus.webui.agent.context import AgentAuthorizationError
 
 
 class FakeStream:
@@ -170,16 +170,20 @@ async def test_clear_file_list_intent_uses_fast_path_without_llm(monkeypatch):
 
     async def fake_execute(_: ChatRequest, name: str, __: str):
         assert name == "list_files"
-        return {
-            "workspaces": [
-                {
-                    "workspace_id": "workspace-1",
-                    "workspace_name": "产品库",
-                    "files": ["说明书.pdf"],
-                    "text_count": 1,
-                }
-            ]
-        }, [], []
+        return (
+            {
+                "workspaces": [
+                    {
+                        "workspace_id": "workspace-1",
+                        "workspace_name": "产品库",
+                        "files": ["说明书.pdf"],
+                        "text_count": 1,
+                    }
+                ]
+            },
+            [],
+            [],
+        )
 
     monkeypatch.setattr(service, "_execute_tool", fake_execute)
     request = ChatRequest(user_id="user-001", messages=[{"role": "user", "content": "有哪些文档？"}])
@@ -291,7 +295,7 @@ def test_dsml_parser_accepts_only_complete_authorized_calls():
     content = (
         '<｜｜DSML｜｜tool_calls><｜｜DSML｜｜invoke name="delete_user">'
         '<｜｜DSML｜｜parameter name="user_id" string="true">domain-1'
-        '</｜｜DSML｜｜parameter></｜｜DSML｜｜invoke></｜｜DSML｜｜tool_calls>'
+        "</｜｜DSML｜｜parameter></｜｜DSML｜｜invoke></｜｜DSML｜｜tool_calls>"
     )
 
     calls = _parse_dsml_tool_calls(content, {"delete_knowledge_user"})
@@ -343,7 +347,7 @@ async def test_dsml_delete_call_emits_confirmation_card_instead_of_raw_markup():
     dsml = (
         '<｜｜DSML｜｜tool_calls><｜｜DSML｜｜invoke name="delete_user">'
         '<｜｜DSML｜｜parameter name="user_id" string="true">domain-1'
-        '\\</｜｜DSML｜｜parameter>\\</｜｜DSML｜｜invoke>\\</｜｜DSML｜｜tool_calls>'
+        "\\</｜｜DSML｜｜parameter>\\</｜｜DSML｜｜invoke>\\</｜｜DSML｜｜tool_calls>"
     )
     client = FakeClient(
         plans=[[], []],
@@ -367,9 +371,7 @@ async def test_dsml_delete_call_emits_confirmation_card_instead_of_raw_markup():
     replanned_messages = client.completions.calls[1]["messages"]
     assert isinstance(replanned_messages, list)
     assert not any(
-        message.get("role") == "assistant"
-        and isinstance(message.get("content"), str)
-        and "<｜" in message["content"]
+        message.get("role") == "assistant" and isinstance(message.get("content"), str) and "<｜" in message["content"]
         for message in replanned_messages
     )
 
@@ -531,7 +533,7 @@ async def test_react_stops_at_configured_tool_call_limit(monkeypatch):
             [tool_call("call-1", "list_workspaces")],
             [tool_call("call-2", "list_files")],
             [tool_call("call-3", "retrieve_user_knowledge")],
-        ]
+        ],
     )
     service = ChatService(runtime, client=client)
     executed: list[str] = []
@@ -659,7 +661,7 @@ async def test_duplicate_sources_are_renumbered_and_emitted_once(monkeypatch):
                 [tool_call("call-1", "retrieve_user_knowledge", '{"query":"部署"}')],
                 [tool_call("call-2", "retrieve_user_knowledge", '{"query":"环境"}')],
                 [],
-            ]
+            ],
         ),
     )
     citation = {

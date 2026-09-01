@@ -44,7 +44,7 @@ def _retention_cutoff(today: date, months: int) -> date:
     return date(year, month, 1)
 
 
-class WebUiAuditLogExporter:
+class AuditLogExporter:
     """把已提交的 SQLite 审计记录导出到仅追加的结构化日志文件。
 
     SQLite 中的导出标记用于多进程互斥和断点续传。文件写入成功后才记录

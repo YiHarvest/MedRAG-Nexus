@@ -5,45 +5,16 @@
 
 from __future__ import annotations
 
-import sqlite3
 from collections.abc import Mapping
 from typing import Any
-from uuid import uuid4
 
 from medrag_nexus.core.ids import normalize_workspace_name
-from medrag_nexus.core.models import AddRequest, StringSource, UserCreateRequest, WorkspaceRecord
+from medrag_nexus.core.models import AddRequest, StringSource
 from medrag_nexus.services.files import FileService
 
 from ..context import AgentAuthorizationError, AgentContext, _jsonable
 from ..registry import ToolSpec, object_schema
 from .read import _required_string, _string
-
-
-async def create_knowledge_user(context: AgentContext, arguments: Mapping[str, Any]) -> Any:
-    user_id = _required_string(arguments, "user_id")
-    user_name = _required_string(arguments, "user_name")
-    created = await FileService(context.runtime).create_user(UserCreateRequest(user_id=user_id, user_name=user_name))
-    try:
-        await context.policies.set_user_policy(
-            user_id,
-            read_min_level=0,
-            workspace_create_min_level=0,
-            actor_account_id=context.principal.account_id,
-        )
-        await context.policies.ensure_resource_acl("user", user_id)
-        await context.policies.grant_user_creator_access(context.principal.account_id, user_id)
-    except Exception:
-        await context.runtime.metadata.delete_user(user_id)
-        await context.policies.delete_user_policy_data(user_id)
-        raise
-    await context.store.record_audit(
-        actor_account_id=context.principal.account_id,
-        action="webui.user.create",
-        resource_type="user",
-        resource_id=user_id,
-        after=_jsonable(created),
-    )
-    return _jsonable(created)
 
 
 async def rename_knowledge_user(context: AgentContext, arguments: Mapping[str, Any]) -> Any:
@@ -67,55 +38,11 @@ async def rename_knowledge_user(context: AgentContext, arguments: Mapping[str, A
     return _jsonable(renamed)
 
 
-async def create_workspace(context: AgentContext, arguments: Mapping[str, Any]) -> Any:
-    user_id = _required_string(arguments, "user_id")
-    workspace_name = normalize_workspace_name(_required_string(arguments, "workspace_name"))
-    await context.require_user(user_id, "webui.workspace.create")
-    workspace = WorkspaceRecord(
-        workspace_id=f"workspace_{uuid4()}",
-        user_id=user_id,
-        workspace_name=workspace_name,
-    )
-    try:
-        await context.runtime.metadata.create_workspace(workspace)
-        await context.policies.set_workspace_policy(
-            workspace.workspace_id,
-            read_min_level=0,
-            cud_min_level=0,
-            actor_account_id=context.principal.account_id,
-            creating=True,
-        )
-        await context.policies.ensure_resource_acl("workspace", workspace.workspace_id, user_id=user_id)
-        await context.policies.grant_workspace_creator_access(context.principal.account_id, workspace.workspace_id)
-        await context.policies.mark_lifecycle(
-            workspace.workspace_id,
-            "active",
-            actor_account_id=context.principal.account_id,
-        )
-        await context.runtime.elasticsearch.mirror_workspace(workspace)
-    except sqlite3.IntegrityError as exc:
-        raise ValueError("workspace name already exists") from exc
-    except Exception:
-        if await context.runtime.metadata.get_workspace(workspace.workspace_id) is not None:
-            await context.runtime.metadata.delete_workspace(workspace.workspace_id)
-        await context.policies.delete_workspace_policy_data(workspace.workspace_id)
-        raise
-    await context.store.record_audit(
-        actor_account_id=context.principal.account_id,
-        action="webui.workspace.create",
-        resource_type="workspace",
-        resource_id=workspace.workspace_id,
-        after=_jsonable(workspace),
-    )
-    return _jsonable(workspace)
-
-
 async def request_create_knowledge_user(context: AgentContext, arguments: Mapping[str, Any]) -> Any:
-    user_id = _required_string(arguments, "user_id")
     user_name = _required_string(arguments, "user_name")
     return await context.request_action(
         tool_name="create_knowledge_user",
-        arguments={"user_id": user_id, "user_name": user_name},
+        arguments={"user_name": user_name},
         required_permissions=("webui.user.create",),
         risk_level="write",
         confirmation_mode="click",
@@ -271,8 +198,8 @@ def knowledge_tool_specs() -> tuple[ToolSpec, ...]:
     return (
         ToolSpec(
             "create_knowledge_user",
-            "创建知识域；只创建点击确认单，用户确认后才会执行。",
-            object_schema({"user_id": user_id, "user_name": _string("知识域名称")}, required=("user_id", "user_name")),
+            "注册知识域；ID 由后端生成，只创建点击确认单，用户确认后才会执行。",
+            object_schema({"user_name": _string("知识域名称")}, required=("user_name",)),
             request_create_knowledge_user,
             ("webui.user.create",),
             superadmin_guard=True,

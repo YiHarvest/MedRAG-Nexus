@@ -50,11 +50,6 @@ export interface UserListItem {
   total_size_bytes: number;
 }
 
-export interface UserCreateRequest {
-  user_id: string;
-  user_name: string;
-}
-
 export interface UserListResponse {
   users: UserListItem[];
 }

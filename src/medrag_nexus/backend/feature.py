@@ -1,4 +1,4 @@
-"""装配 WebUI 账号、权限路由与后台维护任务。"""
+"""装配后端账号、注册、权限路由与维护任务。"""
 
 from __future__ import annotations
 
@@ -19,17 +19,17 @@ from medrag_nexus.core.config import Settings
 from medrag_nexus.core.paths import API_V1_PREFIX, HEALTH_API_PREFIX
 from medrag_nexus.services.runtime import Runtime
 
+from .account_models import RegisterAccountRequest
+from .account_router import DEFAULT_COOKIE_NAME, create_account_router
+from .account_store import AccountConflictError, AccountStore
 from .agent import AgentStore, ArtifactService, build_agent_tool_registry
 from .agent.router import create_agent_router
 from .agent.service import AgentCapabilityService
-from .audit import WebUiAuditLogExporter, reset_audit_request_id, set_audit_request_id
+from .audit import AuditLogExporter, reset_audit_request_id, set_audit_request_id
 from .knowledge_router import create_knowledge_router
-from .models import RegisterRequest
 from .permissions import build_default_registry
 from .policy_store import KnowledgePolicyStore
-from .router import DEFAULT_COOKIE_NAME, create_webui_router
 from .security import WEBUI_LOCK_COOKIE_NAME, PasswordService, verify_webui_lock_session
-from .store import AccountConflictError, WebUiStore
 
 
 def _is_protected_api_path(path: str) -> bool:
@@ -38,8 +38,8 @@ def _is_protected_api_path(path: str) -> bool:
     return path.startswith(f"{API_V1_PREFIX}/") and not path.startswith(f"{HEALTH_API_PREFIX}/")
 
 
-class WebUiFeature:
-    """集中管理 WebUI 专用存储、初始化、路由与维护任务。"""
+class BackendFeature:
+    """集中管理后端存储、初始化、路由与维护任务。"""
 
     def __init__(self, runtime: Runtime, settings: Settings):
         self.runtime = runtime
@@ -52,7 +52,7 @@ class WebUiFeature:
             "path",
             settings.sqlite_path,
         )
-        self.store = WebUiStore(database_path, self.registry)
+        self.store = AccountStore(database_path, self.registry)
         self.policies = KnowledgePolicyStore(database_path)
         self.agent_store = AgentStore(database_path)
         data_root = getattr(runtime_settings, "data_root", None) or getattr(
@@ -68,7 +68,7 @@ class WebUiFeature:
             action_ttl=timedelta(minutes=getattr(settings, "webui_agent_action_ttl_minutes", 15)),
             artifact_ttl=timedelta(hours=getattr(settings, "webui_agent_artifact_ttl_hours", 24)),
         )
-        self.audit_exporter = WebUiAuditLogExporter(
+        self.audit_exporter = AuditLogExporter(
             database_path,
             getattr(settings, "webui_audit_log_dir", database_path.parent / "audit" / "webui"),
             getattr(settings, "webui_audit_log_retention_months", 3),
@@ -79,7 +79,7 @@ class WebUiFeature:
 
     def install(self, app: FastAPI) -> None:
         app.include_router(
-            create_webui_router(
+            create_account_router(
                 self.store,
                 self.registry,
                 cookie_secure=self.settings.webui_cookie_secure,
@@ -105,8 +105,8 @@ class WebUiFeature:
             )
         )
 
-        async def audit_webui_requests(request: Request, call_next):
-            """记录全部 WebUI 请求；密码、正文和 Cookie 永不进入日志。"""
+        async def audit_backend_requests(request: Request, call_next):
+            """记录全部后端业务请求；密码、正文和 Cookie 永不进入日志。"""
 
             if not _is_protected_api_path(request.url.path):
                 return await call_next(request)
@@ -119,7 +119,7 @@ class WebUiFeature:
                 try:
                     actor = await self.store.authenticate_session(token)
                 except Exception:
-                    logging.getLogger(__name__).warning("读取 WebUI 审计身份失败", exc_info=True)
+                    logging.getLogger(__name__).warning("读取后端审计身份失败", exc_info=True)
             started = time.perf_counter()
             status_code = 500
             try:
@@ -163,12 +163,12 @@ class WebUiFeature:
                     )
                 except Exception:
                     logging.getLogger(__name__).error(
-                        "WebUI 请求审计写入失败",
+                        "后端请求审计写入失败",
                         extra={"request_id": request_id, "path": request.url.path},
                         exc_info=True,
                     )
                 logging.getLogger("uvicorn.error").info(
-                    "[WebUI审计] account_id=%s login_name=%s method=%s path=%s status=%s "
+                    "[后端审计] account_id=%s login_name=%s method=%s path=%s status=%s "
                     "duration_ms=%s client_ip=%s request_id=%s",
                     actor.account_id if actor is not None else "anonymous",
                     actor.login_name if actor is not None else "anonymous",
@@ -182,13 +182,13 @@ class WebUiFeature:
                 reset_audit_request_id(request_context)
 
         @app.middleware("http")
-        async def protect_webui_cookie_mutations(request: Request, call_next):
-            """验证外层门锁，并拒绝跨站修改 WebUI 数据。"""
+        async def protect_backend_cookie_mutations(request: Request, call_next):
+            """验证外层门锁，并拒绝跨站修改后端数据。"""
 
-            is_webui_api = _is_protected_api_path(request.url.path)
+            is_backend_api = _is_protected_api_path(request.url.path)
             lock_password = self.settings.webui_lock_password.strip()
             if (
-                is_webui_api
+                is_backend_api
                 and lock_password
                 and not verify_webui_lock_session(
                     request.cookies.get(WEBUI_LOCK_COOKIE_NAME),
@@ -205,7 +205,7 @@ class WebUiFeature:
                     },
                     headers={"cache-control": "no-store"},
                 )
-            if is_webui_api and request.method not in {"GET", "HEAD", "OPTIONS"}:
+            if is_backend_api and request.method not in {"GET", "HEAD", "OPTIONS"}:
                 if request.headers.get("sec-fetch-site", "").casefold() == "cross-site":
                     return JSONResponse(
                         status_code=403,
@@ -234,7 +234,7 @@ class WebUiFeature:
 
         # 最后注册审计中间件，使它位于安全校验之外；被门锁、来源校验或权限
         # 校验拒绝的尝试同样需要留下可追溯记录。
-        app.middleware("http")(audit_webui_requests)
+        app.middleware("http")(audit_backend_requests)
 
     async def start(self) -> None:
         await self.store.ensure()
@@ -266,7 +266,7 @@ class WebUiFeature:
         """空库时从 JSON 列表或兼容的单账号配置创建超级管理员。"""
 
         raw = str(getattr(self.settings, "webui_superadmins_json", "") or "").strip()
-        configured: list[RegisterRequest] = []
+        configured: list[RegisterAccountRequest] = []
         if raw:
             try:
                 values = json.loads(raw)
@@ -277,7 +277,7 @@ class WebUiFeature:
                         raise ValueError("each superadmin must be a JSON object")
                     login_name = item.get("login_name", item.get("username"))
                     configured.append(
-                        RegisterRequest(
+                        RegisterAccountRequest(
                             login_name=login_name,
                             display_name=item.get("display_name", login_name),
                             password=item.get("password"),
@@ -291,7 +291,7 @@ class WebUiFeature:
             if username and password:
                 try:
                     configured.append(
-                        RegisterRequest(
+                        RegisterAccountRequest(
                             login_name=username,
                             display_name=str(getattr(self.settings, "webui_superadmin_display_name", "超级管理员")),
                             password=password,
@@ -327,7 +327,7 @@ class WebUiFeature:
             return
 
     async def _ensure_existing_resource_acls(self) -> None:
-        """为 WebUI 既有资源补齐超级管理员和负责人的系统 ACL。"""
+        """为后端既有资源补齐超级管理员和负责人的系统 ACL。"""
 
         metadata = getattr(self.runtime, "metadata", None)
         if metadata is None:
@@ -342,7 +342,7 @@ class WebUiFeature:
                 )
 
     async def close(self) -> None:
-        """停止 WebUI 后台维护任务。"""
+        """停止后端维护任务。"""
 
         for task in (self._cleanup_task, self._audit_export_task, self._agent_cleanup_task):
             if task is not None:

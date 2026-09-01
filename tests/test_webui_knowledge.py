@@ -12,14 +12,14 @@ from unittest.mock import AsyncMock
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from medrag_nexus.backend import AccountStore, build_default_registry, create_account_router
+from medrag_nexus.backend.knowledge_router import create_knowledge_router
+from medrag_nexus.backend.policy_store import USER_POLICY_ACTIONS, KnowledgePolicyStore, PolicyBinding
+from medrag_nexus.backend.security import PasswordService
 from medrag_nexus.core.ids import new_id
 from medrag_nexus.core.models import ResourceRecord, TaskAccepted, TaskRecord, WorkspaceRecord, local_now
 from medrag_nexus.services.files import FileService
 from medrag_nexus.storage.sqlite import SQLiteStore
-from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
-from medrag_nexus.webui.knowledge_router import create_knowledge_router
-from medrag_nexus.webui.policy_store import USER_POLICY_ACTIONS, KnowledgePolicyStore, PolicyBinding
-from medrag_nexus.webui.security import PasswordService
 
 
 class FakeTasks:
@@ -82,7 +82,7 @@ async def _setup(tmp_path):
         )
     )
     registry = build_default_registry()
-    accounts = WebUiStore(path, registry)
+    accounts = AccountStore(path, registry)
     policies = KnowledgePolicyStore(path)
     await accounts.ensure()
     await policies.ensure()
@@ -92,7 +92,7 @@ async def _setup(tmp_path):
         display_name="管理员",
         password_hash=password,
     )
-    registered = await accounts.create_registered_account(
+    registered = await accounts.register_account(
         login_name="reader",
         display_name="读者",
         password_hash=password,
@@ -125,7 +125,7 @@ async def _setup(tmp_path):
     )
     app = FastAPI()
     app.state.test_runtime = runtime
-    app.include_router(create_webui_router(accounts, registry))
+    app.include_router(create_account_router(accounts, registry))
     app.include_router(create_knowledge_router(runtime, accounts, policies))
     return app, metadata, policies, admin_token, reader_token, superadmin.account_id
 
@@ -134,7 +134,7 @@ async def test_registered_user_only_receives_readable_workspaces_and_capabilitie
     app, _metadata, policies, admin_token, reader_token, admin_account_id = await _setup(tmp_path)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         response = await client.get("/api/v1/workspaces")
         assert response.status_code == 200
         assert response.json()["users"][0]["can_delete"] is False
@@ -164,7 +164,7 @@ async def test_registered_user_only_receives_readable_workspaces_and_capabilitie
         hidden = await client.get("/api/v1/workspaces")
         assert hidden.json()["workspaces"] == []
 
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         visible_to_admin = await client.get("/api/v1/workspaces")
         assert visible_to_admin.json()["users"][0]["can_delete"] is True
         assert visible_to_admin.json()["users"][0]["can_rename"] is True
@@ -173,7 +173,7 @@ async def test_registered_user_only_receives_readable_workspaces_and_capabilitie
 
 async def test_file_detail_and_raw_download_recheck_workspace_permission(tmp_path) -> None:
     app, metadata, policies, admin_token, reader_token, admin_account_id = await _setup(tmp_path)
-    accounts = WebUiStore(policies.path, build_default_registry())
+    accounts = AccountStore(policies.path, build_default_registry())
     reader = await accounts.get_account_by_login("reader")
     assert reader is not None
     artifact = tmp_path / "artifact"
@@ -205,7 +205,7 @@ async def test_file_detail_and_raw_download_recheck_workspace_permission(tmp_pat
     path = "/api/v1/workspaces/workspace_existing/files/file_11111111-1111-4111-8111-111111111111"
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         detail = await client.get(path)
         denied = await client.get(f"{path}/download")
         assert detail.status_code == 200
@@ -225,20 +225,20 @@ async def test_file_detail_and_raw_download_recheck_workspace_permission(tmp_pat
         assert allowed.content == b"download me"
         assert "attachment" in allowed.headers["content-disposition"]
 
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         admin_download = await client.get(f"{path}/download")
         assert admin_download.status_code == 200
 
 
 async def test_member_can_leave_workspace_and_domain_but_superadmin_cannot(tmp_path) -> None:
     app, _metadata, _policies, admin_token, reader_token, _admin_account_id = await _setup(tmp_path)
-    accounts = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
+    accounts = AccountStore(tmp_path / "metadata.sqlite3", build_default_registry())
     reader = await accounts.get_account_by_login("reader")
     assert reader is not None
     await accounts.bind_account_user(reader.account_id, "department-a", actor_account_id=reader.account_id)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         left_workspace = await client.delete("/api/v1/workspaces/workspace_existing/access")
         assert left_workspace.status_code == 200, left_workspace.text
         after_workspace = await client.get("/api/v1/workspaces")
@@ -254,16 +254,17 @@ async def test_member_can_leave_workspace_and_domain_but_superadmin_cannot(tmp_p
         after_user = await client.get("/api/v1/workspaces")
         assert after_user.json() == {"users": [], "workspaces": []}
 
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         protected = await client.delete("/api/v1/users/department-a/access")
         assert protected.status_code == 409
         still_visible = await client.get("/api/v1/workspaces")
         assert len(still_visible.json()["users"]) == 1
 
+
 async def test_superadmin_explicitly_creates_and_renames_empty_workspace(tmp_path) -> None:
     app, metadata, _policies, admin_token, _reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         retired_level = await client.post(
             "/api/v1/workspaces",
             json={
@@ -310,7 +311,7 @@ async def test_superadmin_explicitly_creates_and_renames_empty_workspace(tmp_pat
 async def test_superadmin_renames_knowledge_domain_without_changing_ids(tmp_path) -> None:
     app, metadata, _policies, admin_token, _reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         renamed = await client.patch(
             "/api/v1/users/department-a",
             json={"user_name": "产品知识域"},
@@ -330,11 +331,27 @@ async def test_superadmin_can_create_multiple_knowledge_domains(tmp_path) -> Non
     app, metadata, _policies, admin_token, _reader_token, _admin_account_id = await _setup(tmp_path)
     created_ids: list[str] = []
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         for name in ("产品资料", "法务资料", "培训资料"):
             response = await client.post("/api/v1/users", json={"user_name": name})
             assert response.status_code == 201, response.text
             created_ids.append(response.json()["user_id"])
+
+        caller_selected_id = await client.post(
+            "/api/v1/users",
+            json={"user_id": "caller-selected", "user_name": "不允许指定 ID"},
+        )
+        assert caller_selected_id.status_code == 422
+
+        caller_selected_workspace_id = await client.post(
+            "/api/v1/workspaces",
+            json={
+                "workspace_id": "caller-selected",
+                "user_id": created_ids[0],
+                "workspace_name": "不允许指定 ID",
+            },
+        )
+        assert caller_selected_workspace_id.status_code == 422
 
         visible = await client.get("/api/v1/workspaces")
         assert visible.status_code == 200
@@ -348,7 +365,7 @@ async def test_superadmin_can_create_multiple_knowledge_domains(tmp_path) -> Non
 async def test_custom_group_can_grant_knowledge_domain_creation(tmp_path) -> None:
     app, metadata, _policies, admin_token, reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         group = await client.post(
             "/api/v1/permission-groups",
             json={
@@ -367,7 +384,7 @@ async def test_custom_group_can_grant_knowledge_domain_creation(tmp_path) -> Non
         )
         assert updated.status_code == 200, updated.text
 
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         created = await client.post(
             "/api/v1/users",
             json={"user_name": "读者创建的知识域"},
@@ -383,14 +400,14 @@ async def test_custom_group_can_grant_knowledge_domain_creation(tmp_path) -> Non
 async def test_superadmin_cascade_deletes_knowledge_user_and_reader_cannot(tmp_path) -> None:
     app, metadata, policies, admin_token, reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         denied = await client.delete(
             "/api/v1/users/department-a",
             params={"confirm_name": "部门 A"},
         )
         assert denied.status_code == 404
 
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         mismatch = await client.delete(
             "/api/v1/users/department-a",
             params={"confirm_name": "错误名称"},
@@ -412,16 +429,14 @@ async def test_superadmin_cascade_deletes_knowledge_user_and_reader_cannot(tmp_p
     assert await metadata.get_workspace("workspace_existing") is None
     assert all(
         not bindings
-        for bindings in (
-            await policies.list_bindings("user", "department-a", USER_POLICY_ACTIONS)
-        ).values()
+        for bindings in (await policies.list_bindings("user", "department-a", USER_POLICY_ACTIONS)).values()
     )
 
 
 async def test_concurrent_workspace_deletes_preserve_deleted_tombstone(tmp_path) -> None:
     app, metadata, policies, admin_token, _reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         responses = await asyncio.gather(
             client.delete(
                 "/api/v1/workspaces/workspace_existing",
@@ -447,9 +462,9 @@ async def test_workspace_acl_is_allowlist_and_explicit_deny_wins(tmp_path) -> No
             json={"login_name": "outsider", "display_name": "局外人", "password": "OutsiderSecure!123"},
         )
         assert registered.status_code == 201
-        outsider_token = client.cookies.get("medrag_nexus_account_session")
+        outsider_token = client.cookies.get("medrag_nexus_webui_account_session")
 
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         accounts = (await client.get("/api/v1/accounts")).json()["accounts"]
         reader_id = next(item["account_id"] for item in accounts if item["login_name"] == "reader")
         allow = await client.put(
@@ -470,12 +485,12 @@ async def test_workspace_acl_is_allowlist_and_explicit_deny_wins(tmp_path) -> No
             }
         ]
 
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         assert len((await client.get("/api/v1/workspaces")).json()["workspaces"]) == 1
-        client.cookies.set("medrag_nexus_account_session", outsider_token)
+        client.cookies.set("medrag_nexus_webui_account_session", outsider_token)
         assert (await client.get("/api/v1/workspaces")).json()["workspaces"] == []
 
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         denied = await client.put(
             "/api/v1/workspaces/workspace_existing/bindings",
             json={
@@ -486,14 +501,14 @@ async def test_workspace_acl_is_allowlist_and_explicit_deny_wins(tmp_path) -> No
             },
         )
         assert denied.status_code == 200
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         assert (await client.get("/api/v1/workspaces")).json()["workspaces"] == []
 
 
 async def test_acl_allow_cannot_grant_an_action_missing_from_the_target_group(tmp_path) -> None:
     app, _metadata, _policies, admin_token, _reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         created = await client.post(
             "/api/v1/permission-groups",
             json={
@@ -509,9 +524,7 @@ async def test_acl_allow_cannot_grant_an_action_missing_from_the_target_group(tm
             "/api/v1/users/department-a/bindings",
             json={
                 "action": "webui.user.read",
-                "bindings": [
-                    {"principal_type": "group", "principal_id": "webui.custom.read_only", "effect": "allow"}
-                ],
+                "bindings": [{"principal_type": "group", "principal_id": "webui.custom.read_only", "effect": "allow"}],
             },
         )
         assert valid.status_code == 200, valid.text
@@ -520,9 +533,7 @@ async def test_acl_allow_cannot_grant_an_action_missing_from_the_target_group(tm
             "/api/v1/users/department-a/bindings",
             json={
                 "action": "webui.workspace.create",
-                "bindings": [
-                    {"principal_type": "group", "principal_id": "webui.custom.read_only", "effect": "allow"}
-                ],
+                "bindings": [{"principal_type": "group", "principal_id": "webui.custom.read_only", "effect": "allow"}],
             },
         )
         assert ineffective.status_code == 422
@@ -532,7 +543,7 @@ async def test_acl_allow_cannot_grant_an_action_missing_from_the_target_group(tm
 async def test_user_without_cud_cannot_mutate_workspace_or_resources(tmp_path) -> None:
     app, _metadata, _policies, _admin_token, reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", reader_token)
+        client.cookies.set("medrag_nexus_webui_account_session", reader_token)
         responses = [
             await client.patch(
                 "/api/v1/workspaces/workspace_existing",
@@ -559,7 +570,7 @@ async def test_user_without_cud_cannot_mutate_workspace_or_resources(tmp_path) -
 async def test_file_and_text_resource_permissions_are_independent(tmp_path, monkeypatch) -> None:
     app, _metadata, policies, _admin_token, _reader_token, admin_account_id = await _setup(tmp_path)
     registry = build_default_registry()
-    accounts = WebUiStore(policies.path, registry)
+    accounts = AccountStore(policies.path, registry)
     await accounts.create_permission_group(
         group_key="webui.text_only",
         description="仅可添加文本",
@@ -602,7 +613,7 @@ async def test_file_and_text_resource_permissions_are_independent(tmp_path, monk
     monkeypatch.setattr(FileService, "submit_add", AsyncMock(return_value=TaskAccepted(task_id="c" * 32)))
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", token)
+        client.cookies.set("medrag_nexus_webui_account_session", token)
         knowledge = await client.get("/api/v1/workspaces")
         capabilities = knowledge.json()["workspaces"][0]["capabilities"]
         assert capabilities["can_add_text"] is True
@@ -623,7 +634,7 @@ async def test_file_and_text_resource_permissions_are_independent(tmp_path, monk
 
 async def test_direct_workspace_routes_cannot_bypass_hidden_user_scope(tmp_path) -> None:
     app, metadata, policies, _admin_token, _reader_token, admin_account_id = await _setup(tmp_path)
-    accounts = WebUiStore(policies.path, build_default_registry())
+    accounts = AccountStore(policies.path, build_default_registry())
     manager = await accounts.create_account(
         login_name="manager",
         display_name="Workspace Manager",
@@ -654,7 +665,7 @@ async def test_direct_workspace_routes_cannot_bypass_hidden_user_scope(tmp_path)
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", manager_token)
+        client.cookies.set("medrag_nexus_webui_account_session", manager_token)
         responses = [
             await client.patch(
                 "/api/v1/workspaces/workspace_existing",
@@ -698,7 +709,7 @@ async def test_superadmin_sees_all_accounts_users_and_workspaces(tmp_path) -> No
             json={"login_name": "second", "display_name": "第二用户", "password": "SecondSecure!123"},
         )
         assert registered.status_code == 201
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         accounts = await client.get("/api/v1/accounts")
         knowledge = await client.get("/api/v1/workspaces")
     account_items = accounts.json()["accounts"]
@@ -716,7 +727,7 @@ async def test_multiple_ordinary_accounts_can_bind_same_knowledge_domain(tmp_pat
             json={"login_name": "second", "display_name": "第二用户", "password": "SecondSecure!123"},
         )
         assert registered.status_code == 201
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         accounts = await client.get("/api/v1/accounts")
         account_items = accounts.json()["accounts"]
         reader_id = next(item["account_id"] for item in account_items if item["login_name"] == "reader")
@@ -757,9 +768,7 @@ async def test_multiple_ordinary_accounts_can_bind_same_knowledge_domain(tmp_pat
                 if account_id == second_id:
                     assert matching[0].immutable is True
                     assert matching[0].managed_by == "system.account_binding"
-        second_domain_bindings = await policies.list_bindings(
-            "user", second_domain_id, USER_POLICY_ACTIONS
-        )
+        second_domain_bindings = await policies.list_bindings("user", second_domain_id, USER_POLICY_ACTIONS)
         for action in USER_POLICY_ACTIONS:
             assert any(
                 item.principal_type == "account"
@@ -793,7 +802,7 @@ async def test_accounts_are_separate_from_knowledge_users_and_binding_seeds_acl(
         assert created_account.status_code == 201
         assert {item.user_id for item in (await metadata.list_users()).users} == {"department-a"}
 
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         created_user = await client.post(
             "/api/v1/users",
             json={
@@ -824,9 +833,7 @@ async def test_accounts_are_separate_from_knowledge_users_and_binding_seeds_acl(
         bindings = await policies.list_bindings("user", user_id, USER_POLICY_ACTIONS)
         for action in USER_POLICY_ACTIONS:
             owner_binding = next(
-                item
-                for item in bindings[action]
-                if item.principal_type == "account" and item.principal_id == owner_id
+                item for item in bindings[action] if item.principal_type == "account" and item.principal_id == owner_id
             )
             assert owner_binding.effect == "allow"
             assert owner_binding.immutable is True
@@ -836,7 +843,7 @@ async def test_accounts_are_separate_from_knowledge_users_and_binding_seeds_acl(
 async def test_level_is_not_an_acl_principal_type(tmp_path) -> None:
     app, _metadata, _policies, admin_token, _reader_token, _admin_account_id = await _setup(tmp_path)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         rejected = await client.put(
             "/api/v1/users/department-a/bindings",
             json={
@@ -858,7 +865,7 @@ async def test_knowledge_mutations_and_resource_submissions_are_audited(tmp_path
         AsyncMock(return_value=TaskAccepted(task_id="b" * 32)),
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         created = await client.post(
             "/api/v1/workspaces",
             json={"user_id": "department-a", "workspace_name": "审计知识库"},
@@ -879,7 +886,7 @@ async def test_knowledge_mutations_and_resource_submissions_are_audited(tmp_path
         assert (
             await client.put(
                 f"/api/v1/workspaces/{workspace_id}/bindings",
-                    json={"action": "webui.workspace.read", "bindings": []},
+                json={"action": "webui.workspace.read", "bindings": []},
             )
         ).status_code == 200
         assert (
@@ -888,9 +895,7 @@ async def test_knowledge_mutations_and_resource_submissions_are_audited(tmp_path
                 data={"type": "str", "content": "审计内容"},
             )
         ).status_code == 202
-        assert (
-            await client.delete(f"/api/v1/workspaces/{workspace_id}/strings/sha256:{'c' * 32}")
-        ).status_code == 202
+        assert (await client.delete(f"/api/v1/workspaces/{workspace_id}/strings/sha256:{'c' * 32}")).status_code == 202
         assert (
             await client.delete(
                 f"/api/v1/workspaces/{workspace_id}",
@@ -914,7 +919,7 @@ async def test_cleanup_failure_returns_cleanup_pending(tmp_path) -> None:
     runtime = app.state.test_runtime
     runtime.elasticsearch.delete_workspace_contents = AsyncMock(side_effect=RuntimeError("ES unavailable"))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", admin_token)
+        client.cookies.set("medrag_nexus_webui_account_session", admin_token)
         deleted = await client.delete(
             "/api/v1/workspaces/workspace_existing",
             params={"confirm_name": "公开知识库"},

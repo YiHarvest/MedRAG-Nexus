@@ -300,20 +300,16 @@ class Settings(BaseSettings):
             raise ValueError("Backend Elasticsearch indices must differ from MCP indices")
         return self
 
-    def webui_runtime_settings(self) -> Settings:
-        """生成 WebUI 独立知识存储使用的 Runtime 配置。"""
+    def backend_runtime_settings(self) -> Settings:
+        """生成后端账号业务独立知识存储使用的 Runtime 配置。"""
 
         return self.model_copy(
             update={
                 "data_root": self.webui_data_root,
                 "sqlite_path": self.webui_sqlite_path,
                 "elasticsearch_url": self.webui_elasticsearch_url or self.elasticsearch_url,
-                "elasticsearch_username": (
-                    self.webui_elasticsearch_username or self.elasticsearch_username
-                ),
-                "elasticsearch_password": (
-                    self.webui_elasticsearch_password or self.elasticsearch_password
-                ),
+                "elasticsearch_username": (self.webui_elasticsearch_username or self.elasticsearch_username),
+                "elasticsearch_password": (self.webui_elasticsearch_password or self.elasticsearch_password),
                 "elasticsearch_api_key": self.webui_elasticsearch_api_key or self.elasticsearch_api_key,
                 "elasticsearch_workspace_index": self.webui_elasticsearch_workspace_index,
                 "elasticsearch_document_index": self.webui_elasticsearch_document_index,

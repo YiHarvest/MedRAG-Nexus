@@ -248,7 +248,7 @@ export async function getPermissionCatalog(): Promise<PermissionCatalog> {
   };
 }
 
-export function createWebUiKnowledgeUser(payload: {
+export function registerKnowledgeDomain(payload: {
   user_name: string;
   bind_account_id?: string | null;
 }): Promise<WebUiWorkspaceUser> {
@@ -272,7 +272,7 @@ export function leaveWebUiKnowledgeUser(userId: string): Promise<{ status: "ok";
   return request(`/users/${encodeURIComponent(userId)}/access`, { method: "DELETE" });
 }
 
-export function createWebUiWorkspace(payload: {
+export function registerKnowledgeBase(payload: {
   user_id: string;
   workspace_name: string;
   read_min_level: number;
@@ -457,7 +457,7 @@ export function loginWebUiAccount(payload: {
   });
 }
 
-export function registerWebUiAccount(payload: {
+export function registerAccount(payload: {
   login_name: string;
   display_name: string;
   password: string;

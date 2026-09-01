@@ -1,4 +1,4 @@
-"""保存 WebUI 身份、Session、权限和审计的 SQLite 旁路存储。"""
+"""保存后端账号、Session、权限和审计的 SQLite 存储。"""
 
 from __future__ import annotations
 
@@ -10,8 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from .audit import current_audit_request_id
-from .models import (
+from .account_models import (
     AccountRecord,
     AdminPatchAccountRequest,
     AuditEventResponse,
@@ -22,6 +21,7 @@ from .models import (
     PermissionNodeResponse,
     PermissionPluginResponse,
 )
+from .audit import current_audit_request_id
 from .permissions import PermissionRegistry
 from .security import new_session_token, session_token_hash
 
@@ -63,48 +63,48 @@ def _datetime(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value) if value else None
 
 
-class WebUiStoreError(RuntimeError):
+class AccountStoreError(RuntimeError):
     code = "webui_store_error"
 
 
-class AccountConflictError(WebUiStoreError):
+class AccountConflictError(AccountStoreError):
     code = "account_conflict"
 
 
-class AccountNotFoundError(WebUiStoreError):
+class AccountNotFoundError(AccountStoreError):
     code = "account_not_found"
 
 
-class InvalidPermissionGroupError(WebUiStoreError):
+class InvalidPermissionGroupError(AccountStoreError):
     code = "invalid_permission_group"
 
 
-class LastSuperadminError(WebUiStoreError):
+class LastSuperadminError(AccountStoreError):
     code = "last_superadmin_required"
 
 
-class SuperadminImmutableError(WebUiStoreError):
+class SuperadminImmutableError(AccountStoreError):
     code = "superadmin_immutable"
 
 
-class InvalidPermissionLevelError(WebUiStoreError):
+class InvalidPermissionLevelError(AccountStoreError):
     code = "invalid_permission_level"
 
 
-class PermissionGroupConflictError(WebUiStoreError):
+class PermissionGroupConflictError(AccountStoreError):
     code = "permission_group_conflict"
 
 
-class PermissionGroupNotFoundError(WebUiStoreError):
+class PermissionGroupNotFoundError(AccountStoreError):
     code = "permission_group_not_found"
 
 
-class AccountBindingError(WebUiStoreError):
+class AccountBindingError(AccountStoreError):
     code = "account_binding_error"
 
 
-class WebUiStore:
-    """在现有元数据 SQLite 文件中管理 WebUI 专用旁路表。
+class AccountStore:
+    """在现有元数据 SQLite 文件中管理后端账号与权限表。
 
     不修改既有业务表。``ensure`` 可以重复调用，并会把插件注册器中的权限定义
     同步到旁路权限表。
@@ -138,8 +138,7 @@ class WebUiStore:
             db.execute("PRAGMA journal_mode = WAL")
             had_legacy_binding_table = bool(
                 db.execute(
-                    "SELECT 1 FROM sqlite_master WHERE type = 'table' "
-                    "AND name = 'webui_account_user_responsibilities'"
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'webui_account_user_responsibilities'"
                 ).fetchone()
             )
             db.executescript(
@@ -313,9 +312,7 @@ class WebUiStore:
             now = _iso(_now())
             db.execute("BEGIN IMMEDIATE")
             try:
-                db.execute(
-                    "DROP INDEX IF EXISTS idx_webui_accounts_bound_user"
-                )
+                db.execute("DROP INDEX IF EXISTS idx_webui_accounts_bound_user")
                 db.execute(
                     "UPDATE webui_accounts SET bound_user_id = NULL, modified_at = ? "
                     "WHERE permission_level >= 1000 AND bound_user_id IS NOT NULL",
@@ -385,9 +382,7 @@ class WebUiStore:
 
         deprecated_permission = "webui.account.sessions.revoke"
         affected = {
-            "accounts": int(
-                db.execute("SELECT COUNT(*) FROM webui_accounts WHERE permission_level = 3").fetchone()[0]
-            ),
+            "accounts": int(db.execute("SELECT COUNT(*) FROM webui_accounts WHERE permission_level = 3").fetchone()[0]),
             "user_policies": int(
                 db.execute(
                     "SELECT COUNT(*) FROM webui_user_policies "
@@ -396,8 +391,7 @@ class WebUiStore:
             ),
             "workspace_policies": int(
                 db.execute(
-                    "SELECT COUNT(*) FROM webui_workspace_policies "
-                    "WHERE read_min_level = 3 OR cud_min_level = 3"
+                    "SELECT COUNT(*) FROM webui_workspace_policies WHERE read_min_level = 3 OR cud_min_level = 3"
                 ).fetchone()[0]
             ),
             "permission_groups": int(
@@ -485,8 +479,7 @@ class WebUiStore:
                 ],
             )
         db.execute(
-            f"DELETE FROM webui_policy_bindings WHERE principal_type = 'group' "
-            f"AND principal_id IN ({placeholders})",
+            f"DELETE FROM webui_policy_bindings WHERE principal_type = 'group' AND principal_id IN ({placeholders})",
             _LEGACY_ROLE_GROUPS,
         )
         db.execute(
@@ -524,9 +517,7 @@ class WebUiStore:
 
     @staticmethod
     def _migrate_policy_bindings_v2(db: sqlite3.Connection) -> None:
-        row = db.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name='webui_policy_bindings'"
-        ).fetchone()
+        row = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='webui_policy_bindings'").fetchone()
         schema = str(row[0]) if row and row[0] else ""
         if "managed_by" in schema and "'level'" not in schema and "CHECK(action IN" not in schema:
             return
@@ -562,9 +553,7 @@ class WebUiStore:
             """
         )
 
-    async def create_registered_account(
-        self, *, login_name: str, display_name: str, password_hash: str
-    ) -> AccountRecord:
+    async def register_account(self, *, login_name: str, display_name: str, password_hash: str) -> AccountRecord:
         return await self.create_account(
             login_name=login_name,
             display_name=display_name,
@@ -874,9 +863,7 @@ class WebUiStore:
             with self._connect() as db:
                 db.execute("BEGIN IMMEDIATE")
                 try:
-                    if db.execute(
-                        "SELECT 1 FROM webui_permission_groups WHERE group_key = ?", (group_key,)
-                    ).fetchone():
+                    if db.execute("SELECT 1 FROM webui_permission_groups WHERE group_key = ?", (group_key,)).fetchone():
                         raise PermissionGroupConflictError("permission group already exists")
                     normalized = sorted(set(permissions))
                     self._validate_custom_permissions(db, normalized)
@@ -1082,8 +1069,7 @@ class WebUiStore:
                     before_user_ids = [
                         str(item[0])
                         for item in db.execute(
-                            "SELECT user_id FROM webui_account_user_bindings "
-                            "WHERE account_id = ? ORDER BY user_id",
+                            "SELECT user_id FROM webui_account_user_bindings WHERE account_id = ? ORDER BY user_id",
                             (account_id,),
                         ).fetchall()
                     ]
@@ -1094,10 +1080,7 @@ class WebUiStore:
                     db.executemany(
                         "INSERT INTO webui_account_user_bindings"
                         "(account_id, user_id, assigned_by_account_id, created_at) VALUES (?, ?, ?, ?)",
-                        [
-                            (account_id, user_id, actor_account_id, now)
-                            for user_id in normalized_user_ids
-                        ],
+                        [(account_id, user_id, actor_account_id, now) for user_id in normalized_user_ids],
                     )
                     db.execute(
                         "UPDATE webui_accounts SET bound_user_id = ?, modified_at = ? WHERE account_id = ?",
@@ -1123,9 +1106,7 @@ class WebUiStore:
 
         return await asyncio.to_thread(write)
 
-    async def bind_account_user(
-        self, account_id: str, user_id: str | None, actor_account_id: str
-    ) -> AccountRecord:
+    async def bind_account_user(self, account_id: str, user_id: str | None, actor_account_id: str) -> AccountRecord:
         """兼容单绑定调用方；新代码应使用多绑定接口。"""
 
         return await self.set_account_user_bindings(
@@ -1241,9 +1222,7 @@ class WebUiStore:
             with self._connect() as db:
                 db.execute("BEGIN IMMEDIATE")
                 try:
-                    row = db.execute(
-                        "SELECT * FROM webui_accounts WHERE account_id = ?", (account_id,)
-                    ).fetchone()
+                    row = db.execute("SELECT * FROM webui_accounts WHERE account_id = ?", (account_id,)).fetchone()
                     if row is None:
                         raise AccountNotFoundError("account does not exist")
                     before = self._account(db, row)
@@ -1466,8 +1445,7 @@ class WebUiStore:
                     target = self._account(db, target_row)
                     if self._is_superadmin(target) and (
                         actor_account_id != account_id
-                        or audit_action
-                        not in {"webui.account.password.change_self", "webui.account.password.rehash"}
+                        or audit_action not in {"webui.account.password.change_self", "webui.account.password.rehash"}
                     ):
                         raise SuperadminImmutableError(
                             "superadmin passwords can only be changed through the self-service endpoint"
@@ -1506,8 +1484,7 @@ class WebUiStore:
         bound_user_ids = [
             str(item[0])
             for item in db.execute(
-                "SELECT user_id FROM webui_account_user_bindings "
-                "WHERE account_id = ? ORDER BY user_id",
+                "SELECT user_id FROM webui_account_user_bindings WHERE account_id = ? ORDER BY user_id",
                 (row["account_id"],),
             ).fetchall()
         ]
@@ -1567,16 +1544,14 @@ class WebUiStore:
                 system_managed=bool(row["system_managed"]),
             )
             for row in db.execute(
-                "SELECT group_key, name, description, system_managed "
-                "FROM webui_permission_groups ORDER BY group_key"
+                "SELECT group_key, name, description, system_managed FROM webui_permission_groups ORDER BY group_key"
             ).fetchall()
         ]
 
     def _get_permission_group_sync(self, group_key: str) -> PermissionGroupResponse:
         with self._connect() as db:
             row = db.execute(
-                "SELECT group_key, name, description, system_managed "
-                "FROM webui_permission_groups WHERE group_key = ?",
+                "SELECT group_key, name, description, system_managed FROM webui_permission_groups WHERE group_key = ?",
                 (group_key,),
             ).fetchone()
             if row is None:

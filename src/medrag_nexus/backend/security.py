@@ -1,4 +1,4 @@
-"""WebUI 密码、不透明 Session 与外层门锁令牌工具。"""
+"""后端密码、不透明账号 Session 与前端外层门锁令牌工具。"""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
-"""WebUI Agent 工具的运行上下文与鉴权辅助能力。
+"""后端 Agent 工具的运行上下文与鉴权辅助能力。
 
-上下文只携带服务端解析出的 :class:`WebUiPrincipal`；工具参数可以标识资源，但绝不能选择执行账号。
+上下文只携带服务端解析出的 :class:`AccountPrincipal`；工具参数可以标识资源，但绝不能选择执行账号。
 """
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from medrag_nexus.webui.router import WebUiPrincipal
+from medrag_nexus.backend.account_router import AccountPrincipal
 
-PrincipalResolver = Callable[[], Awaitable[WebUiPrincipal]]
+PrincipalResolver = Callable[[], Awaitable[AccountPrincipal]]
 
 
 class ActionIntentStore(Protocol):
@@ -60,7 +60,7 @@ class AgentContext:
     从而让权限组变化和账号停用立即生效。
     """
 
-    principal: WebUiPrincipal
+    principal: AccountPrincipal
     runtime: Any
     store: Any
     policies: Any
@@ -70,7 +70,7 @@ class AgentContext:
     capability_gateway: AgentCapabilityGateway | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    async def refresh_principal(self) -> WebUiPrincipal:
+    async def refresh_principal(self) -> AccountPrincipal:
         principal = await self.resolve_principal()
         if principal.account.account_id != self.principal.account.account_id:
             raise AgentAuthorizationError(

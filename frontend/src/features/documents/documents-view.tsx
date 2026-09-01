@@ -35,8 +35,8 @@ import { generateUUID } from "@/lib/uuid";
 import {
   addWebUiResource,
   cancelWebUiTask,
-  createWebUiKnowledgeUser,
-  createWebUiWorkspace,
+  registerKnowledgeDomain,
+  registerKnowledgeBase,
   deleteWebUiFile,
   deleteWebUiString,
   deleteWebUiWorkspace,
@@ -521,7 +521,7 @@ export function DocumentsView() {
     setWorkspaceActionBusy(true);
     setNotice(null);
     try {
-      const created = await createWebUiKnowledgeUser({ user_name: normalizedName });
+      const created = await registerKnowledgeDomain({ user_name: normalizedName });
       await refreshWorkspaces();
       setSelectedKnowledgeUserId(created.user_id);
       setWorkspace({ userId: created.user_id, workspaceId: "", workspaceName: "" });
@@ -579,7 +579,7 @@ export function DocumentsView() {
     setWorkspaceActionBusy(true);
     setNotice(null);
     try {
-      const created = await createWebUiWorkspace({
+      const created = await registerKnowledgeBase({
         user_id: newWorkspaceUserId,
         workspace_name: normalizedName,
         read_min_level: readMinLevel,

@@ -8,16 +8,16 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
-from medrag_nexus.webui.agent import AgentStore, ArtifactService
-from medrag_nexus.webui.agent.router import create_agent_router
-from medrag_nexus.webui.policy_store import KnowledgePolicyStore
-from medrag_nexus.webui.security import PasswordService
+from medrag_nexus.backend import AccountStore, build_default_registry, create_account_router
+from medrag_nexus.backend.agent import AgentStore, ArtifactService
+from medrag_nexus.backend.agent.router import create_agent_router
+from medrag_nexus.backend.policy_store import KnowledgePolicyStore
+from medrag_nexus.backend.security import PasswordService
 
 
 async def _setup(tmp_path):
     database_path = tmp_path / "metadata.sqlite3"
-    accounts = WebUiStore(database_path, build_default_registry())
+    accounts = AccountStore(database_path, build_default_registry())
     policies = KnowledgePolicyStore(database_path)
     actions = AgentStore(database_path)
     artifacts = ArtifactService(tmp_path / "agent-artifacts", actions)
@@ -32,7 +32,7 @@ async def _setup(tmp_path):
     token, _ = await accounts.create_session(admin, timedelta(hours=1))
     runtime = SimpleNamespace(metadata=SimpleNamespace(), settings=SimpleNamespace(max_file_bytes=1024))
     app = FastAPI()
-    app.include_router(create_webui_router(accounts))
+    app.include_router(create_account_router(accounts))
     app.include_router(create_agent_router(runtime, accounts, policies, actions, artifacts))
     return app, accounts, actions, artifacts, admin, token
 
@@ -54,7 +54,7 @@ async def test_confirm_then_secure_input_creates_account_without_persisting_pass
         risk_level="sensitive",
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", token)
+        client.cookies.set("medrag_nexus_webui_account_session", token)
         confirmed = await client.post(f"/api/v1/agent/actions/{action.action_id}/confirm", json={})
         assert confirmed.status_code == 200
         assert confirmed.json()["status"] == "confirmed"
@@ -87,7 +87,7 @@ async def test_change_password_requires_click_confirmation_before_secure_input(t
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", token)
+        client.cookies.set("medrag_nexus_webui_account_session", token)
         confirmed = await client.post(f"/api/v1/agent/actions/{action.action_id}/confirm", json={})
 
     assert confirmed.status_code == 200
@@ -106,7 +106,7 @@ async def test_artifact_link_allows_authorized_download_and_can_be_revoked(tmp_p
         required_permissions=("webui.agent.export",),
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", token)
+        client.cookies.set("medrag_nexus_webui_account_session", token)
         downloaded = await client.get(f"/api/v1/agent/artifacts/{artifact.artifact_id}/download")
         assert downloaded.status_code == 200
         assert downloaded.content == b"docx-bytes"
@@ -131,7 +131,7 @@ async def test_confirmation_rechecks_current_permission(tmp_path) -> None:
         risk_level="destructive",
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", token)
+        client.cookies.set("medrag_nexus_webui_account_session", token)
         denied = await client.post(f"/api/v1/agent/actions/{action.action_id}/confirm", json={})
     assert denied.status_code == 403
     assert denied.json()["detail"]["code"] == "permission_denied"
@@ -158,7 +158,7 @@ async def test_repeated_confirmation_returns_current_terminal_status(tmp_path) -
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("medrag_nexus_account_session", token)
+        client.cookies.set("medrag_nexus_webui_account_session", token)
         repeated = await client.post(
             f"/api/v1/agent/actions/{action.action_id}/confirm",
             json={},

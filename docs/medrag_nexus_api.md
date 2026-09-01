@@ -15,7 +15,7 @@
 
 ## 认证与授权
 
-`POST /api/v1/auth/register` 和 `POST /api/v1/auth/login` 成功后由后端设置 HttpOnly Session Cookie。除注册、登录和健康检查外，业务请求依次经过：
+`POST /api/v1/auth/register` 和 `POST /api/v1/auth/login` 成功后由后端设置名为 `medrag_nexus_webui_account_session` 的 HttpOnly Session Cookie。除注册、登录和健康检查外，业务请求依次经过：
 
 1. 可选部署外层门锁；
 2. 后端账号 Session；
@@ -30,7 +30,7 @@
 账号、知识域和 Workspace 均由 Python 后端完成校验与持久化：
 
 - 注册账号时由后端生成 `account_id` 并创建 Session。
-- 创建知识域时前端只需提交 `user_name` 等业务字段，后端默认生成 `user_id`。
+- 注册知识域时前端只提交 `user_name` 等业务字段，后端始终生成 `user_id`；传入 `user_id` 会被拒绝。
 - 创建 Workspace 时提交所属 `user_id` 和 `workspace_name`，后端生成 `workspace_id`。
 - 前端的 API 模块只是请求封装，不直接写数据库，也不建立权限关系。
 

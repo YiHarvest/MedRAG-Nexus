@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from medrag_nexus.webui.agent import (
+from medrag_nexus.backend.agent import (
     ActionOwnershipError,
     ActionPayloadError,
     ActionStateError,
@@ -16,8 +16,8 @@ from medrag_nexus.webui.agent import (
     IdempotencyConflictError,
     InvalidConfirmationError,
 )
-from medrag_nexus.webui.agent.service import ConfirmedActionExecutor
-from medrag_nexus.webui.agent.tools import build_default_agent_tool_registry
+from medrag_nexus.backend.agent.service import ConfirmedActionExecutor
+from medrag_nexus.backend.agent.tools import build_default_agent_tool_registry
 
 
 async def test_action_lifecycle_is_account_bound_and_idempotent(tmp_path) -> None:
@@ -165,7 +165,7 @@ async def test_action_result_allows_numeric_byte_count_but_rejects_binary_conten
         account_id="account-a",
         conversation_id="conversation-1",
         tool_name="create_knowledge_user",
-        canonical_arguments={"user_id": "tech", "user_name": "技术域"},
+        canonical_arguments={"user_name": "技术域"},
     )
     await store.confirm_action(action.action_id, account_id="account-a")
     await store.start_action(action.action_id, account_id="account-a")
@@ -219,7 +219,7 @@ async def test_confirmed_create_actions_reuse_webui_api_routes(tmp_path) -> None
         account_id="account-a",
         conversation_id="conversation-1",
         tool_name="create_knowledge_user",
-        canonical_arguments={"user_id": "computer-domain", "user_name": "计算机域"},
+        canonical_arguments={"user_name": "计算机域"},
         required_permissions=("webui.user.create",),
         risk_level="write",
     )
@@ -235,7 +235,7 @@ async def test_confirmed_create_actions_reuse_webui_api_routes(tmp_path) -> None
     assert executor._request_spec(create_user, None) == (
         "POST",
         "/api/v1/users",
-        {"user_id": "computer-domain", "user_name": "计算机域"},
+        {"user_name": "计算机域"},
     )
     assert executor._request_spec(create_workspace, None) == (
         "POST",
@@ -248,7 +248,7 @@ async def test_every_interactive_tool_has_a_confirmed_webui_request(tmp_path) ->
     store = AgentStore(tmp_path / "webui.sqlite3")
     executor = ConfirmedActionExecutor()
     arguments = {
-        "create_knowledge_user": {"user_id": "domain-1", "user_name": "知识域一"},
+        "create_knowledge_user": {"user_name": "知识域一"},
         "rename_knowledge_user": {"user_id": "domain-1", "user_name": "新知识域"},
         "create_workspace": {"user_id": "domain-1", "workspace_name": "知识库一"},
         "rename_workspace": {"workspace_id": "workspace-1", "workspace_name": "新知识库"},
@@ -285,9 +285,7 @@ async def test_every_interactive_tool_has_a_confirmed_webui_request(tmp_path) ->
             "bindings": [],
         },
     }
-    interactive_specs = [
-        spec for spec in build_default_agent_tool_registry().specs if spec.input_mode != "model"
-    ]
+    interactive_specs = [spec for spec in build_default_agent_tool_registry().specs if spec.input_mode != "model"]
 
     assert {spec.name for spec in interactive_specs} == set(arguments)
     requests = {}
