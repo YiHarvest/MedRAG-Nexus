@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from medrag_nexus.backend.agent import (
+from medrag_nexus.agent import (
     ActionOwnershipError,
     ActionPayloadError,
     ActionStateError,
@@ -16,8 +16,8 @@ from medrag_nexus.backend.agent import (
     IdempotencyConflictError,
     InvalidConfirmationError,
 )
-from medrag_nexus.backend.agent.service import ConfirmedActionExecutor
-from medrag_nexus.backend.agent.tools import build_default_agent_tool_registry
+from medrag_nexus.agent.service import ConfirmedActionExecutor
+from medrag_nexus.agent.tools import build_default_agent_tool_registry
 
 
 async def test_action_lifecycle_is_account_bound_and_idempotent(tmp_path) -> None:

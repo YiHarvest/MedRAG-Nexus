@@ -12,11 +12,11 @@ from uuid import uuid4
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from medrag_nexus.backend import AccountStore, build_default_registry, create_account_router
-from medrag_nexus.backend.knowledge_router import create_knowledge_router
-from medrag_nexus.backend.policy_store import KnowledgePolicyStore
-from medrag_nexus.backend.security import PasswordService
 from medrag_nexus.core.models import WorkspaceRecord, local_now
+from medrag_nexus.identity import AccountStore, build_default_registry, create_account_router
+from medrag_nexus.identity.security import PasswordService
+from medrag_nexus.knowledge.policies import KnowledgePolicyStore
+from medrag_nexus.knowledge.router import create_knowledge_router
 from medrag_nexus.storage.files import ArtifactStore
 from medrag_nexus.storage.sqlite import SQLiteStore
 

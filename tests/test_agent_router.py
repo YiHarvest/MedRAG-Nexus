@@ -8,11 +8,11 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from medrag_nexus.backend import AccountStore, build_default_registry, create_account_router
-from medrag_nexus.backend.agent import AgentStore, ArtifactService
-from medrag_nexus.backend.agent.router import create_agent_router
-from medrag_nexus.backend.policy_store import KnowledgePolicyStore
-from medrag_nexus.backend.security import PasswordService
+from medrag_nexus.agent import AgentStore, ArtifactService
+from medrag_nexus.agent.router import create_agent_router
+from medrag_nexus.identity import AccountStore, build_default_registry, create_account_router
+from medrag_nexus.identity.security import PasswordService
+from medrag_nexus.knowledge.policies import KnowledgePolicyStore
 
 
 async def _setup(tmp_path):

@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 import httpx
 
-from medrag_nexus.backend.account_router import DEFAULT_COOKIE_NAME
+from medrag_nexus.identity.router import DEFAULT_COOKIE_NAME
 
 from .artifacts import ArtifactService
 from .context import AgentContext

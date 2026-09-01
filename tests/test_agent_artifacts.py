@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from docx import Document
 
-from medrag_nexus.backend.agent import (
+from medrag_nexus.agent import (
     ActionOwnershipError,
     AgentArtifactResponse,
     AgentStore,

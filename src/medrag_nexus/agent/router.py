@@ -11,11 +11,11 @@ from pydantic import Field
 from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse
 
-from medrag_nexus.backend.account_router import DEFAULT_COOKIE_NAME, AccountPrincipal, create_principal_dependency
-from medrag_nexus.backend.account_store import AccountStore
-from medrag_nexus.backend.policy_store import KnowledgePolicyStore
 from medrag_nexus.core.models import APIModel
 from medrag_nexus.core.paths import AGENT_API_PREFIX
+from medrag_nexus.identity.router import DEFAULT_COOKIE_NAME, AccountPrincipal, create_principal_dependency
+from medrag_nexus.identity.store import AccountStore
+from medrag_nexus.knowledge.policies import KnowledgePolicyStore
 
 from .artifacts import ArtifactService
 from .models import ActionTarget, AgentAction

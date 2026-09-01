@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from medrag_nexus.backend.account_router import AccountPrincipal
-from medrag_nexus.backend.agent.context import AgentAuthorizationError, AgentContext
-from medrag_nexus.backend.agent.registry import AgentToolRegistry, ToolSpec, object_schema
-from medrag_nexus.backend.agent.tools import build_default_agent_tool_registry
-from medrag_nexus.backend.agent.tools import read as read_tools
-from medrag_nexus.backend.agent.tools.read import get_file_details, list_files, prepare_file_download
+from medrag_nexus.agent.context import AgentAuthorizationError, AgentContext
+from medrag_nexus.agent.registry import AgentToolRegistry, ToolSpec, object_schema
+from medrag_nexus.agent.tools import build_default_agent_tool_registry
+from medrag_nexus.agent.tools import read as read_tools
+from medrag_nexus.agent.tools.read import get_file_details, list_files, prepare_file_download
+from medrag_nexus.identity.router import AccountPrincipal
 
 
 def principal(*permissions: str, level: int = 0, enabled: bool = True) -> AccountPrincipal:

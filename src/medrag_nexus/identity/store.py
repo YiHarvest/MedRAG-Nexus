@@ -10,7 +10,8 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from .account_models import (
+from .audit import current_audit_request_id
+from .models import (
     AccountRecord,
     AdminPatchAccountRequest,
     AuditEventResponse,
@@ -21,7 +22,6 @@ from .account_models import (
     PermissionNodeResponse,
     PermissionPluginResponse,
 )
-from .audit import current_audit_request_id
 from .permissions import PermissionRegistry
 from .security import new_session_token, session_token_hash
 

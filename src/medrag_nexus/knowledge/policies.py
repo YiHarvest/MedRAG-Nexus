@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
 
-from .account_models import AccountRecord
+from medrag_nexus.identity.models import AccountRecord
 
 PolicyAction = str
 ResourceType = Literal["user", "workspace"]

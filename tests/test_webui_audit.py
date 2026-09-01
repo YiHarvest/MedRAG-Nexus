@@ -6,14 +6,14 @@ import json
 import sqlite3
 from datetime import date, timedelta
 
-from medrag_nexus.backend.account_store import AccountStore
-from medrag_nexus.backend.audit import (
+from medrag_nexus.core.config import Settings
+from medrag_nexus.identity.audit import (
     AuditLogExporter,
     reset_audit_request_id,
     set_audit_request_id,
 )
-from medrag_nexus.backend.permissions import build_default_registry
-from medrag_nexus.core.config import Settings
+from medrag_nexus.identity.permissions import build_default_registry
+from medrag_nexus.identity.store import AccountStore
 
 
 def test_backend_runtime_settings_isolate_all_storage_names(tmp_path) -> None:

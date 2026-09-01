@@ -10,7 +10,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, 
 
 from medrag_nexus.core.paths import API_V1_PREFIX
 
-from .account_models import (
+from .models import (
     AccountCapabilities,
     AccountListResponse,
     AccountRecord,
@@ -30,7 +30,9 @@ from .account_models import (
     RegisterAccountRequest,
     SessionResponse,
 )
-from .account_store import (
+from .permissions import PermissionEngine, PermissionRegistry
+from .security import PasswordService
+from .store import (
     AccountConflictError,
     AccountNotFoundError,
     AccountStore,
@@ -41,8 +43,6 @@ from .account_store import (
     PermissionGroupNotFoundError,
     SuperadminImmutableError,
 )
-from .permissions import PermissionEngine, PermissionRegistry
-from .security import PasswordService
 
 DEFAULT_COOKIE_NAME = "medrag_nexus_webui_account_session"
 

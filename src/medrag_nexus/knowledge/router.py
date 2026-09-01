@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import sqlite3
+from collections.abc import Callable
 from dataclasses import asdict
 from typing import Annotated, Any, Literal
 from uuid import uuid4
@@ -34,17 +35,16 @@ from medrag_nexus.core.models import (
     WorkspaceRecord,
 )
 from medrag_nexus.core.paths import API_V1_PREFIX
+from medrag_nexus.identity.models import AccountRecord
+from medrag_nexus.identity.router import DEFAULT_COOKIE_NAME, AccountPrincipal, create_principal_dependency
+from medrag_nexus.identity.store import AccountBindingError, AccountStore
 from medrag_nexus.services.chat import stream_chat
 from medrag_nexus.services.files import FileService
 from medrag_nexus.services.health import dependency_health
 from medrag_nexus.services.retrieval import retrieve
 from medrag_nexus.services.runtime import Runtime
 
-from .account_models import AccountRecord
-from .account_router import DEFAULT_COOKIE_NAME, AccountPrincipal, create_principal_dependency
-from .account_store import AccountBindingError, AccountStore
-from .agent.context import AgentContext
-from .policy_store import (
+from .policies import (
     USER_POLICY_ACTIONS,
     WORKSPACE_POLICY_ACTIONS,
     InvalidPolicyBindingError,
@@ -218,9 +218,8 @@ def create_knowledge_router(
     policies: KnowledgePolicyStore,
     *,
     cookie_name: str = DEFAULT_COOKIE_NAME,
-    agent_store: Any | None = None,
+    agent_context_factory: Callable[..., Any] | None = None,
     agent_registry: Any | None = None,
-    agent_capabilities: Any | None = None,
 ) -> APIRouter:
     principal_dependency = create_principal_dependency(account_store, cookie_name=cookie_name)
     allowed_levels = frozenset(level.value for level in account_store.registry.levels)
@@ -1562,7 +1561,7 @@ def create_knowledge_router(
             },
         )
         context = None
-        if agent_registry is not None:
+        if agent_registry is not None and agent_context_factory is not None:
             session_token = request.cookies.get(cookie_name)
 
             async def resolve_principal() -> AccountPrincipal:
@@ -1574,15 +1573,13 @@ def create_knowledge_router(
                 permissions = await account_store.permission_keys(account.account_id)
                 return AccountPrincipal(account=account, permissions=frozenset(permissions))
 
-            context = AgentContext(
+            context = agent_context_factory(
                 principal=caller,
                 runtime=runtime,
                 store=account_store,
                 policies=policies,
                 resolve_principal=resolve_principal,
                 conversation_id=conversation_id,
-                action_store=agent_store,
-                capability_gateway=agent_capabilities,
             )
         return StreamingResponse(
             stream_chat(

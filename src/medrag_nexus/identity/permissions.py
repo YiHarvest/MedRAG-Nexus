@@ -239,7 +239,7 @@ def _external_plugins() -> list[PermissionPlugin]:
     """加载部署环境安装的权限插件入口点。"""
 
     discovered: list[PermissionPlugin] = []
-    for candidate in entry_points(group="medrag_nexus.backend_permission_plugins"):
+    for candidate in entry_points(group="medrag_nexus.identity_permission_plugins"):
         try:
             loaded = candidate.load()
             plugin = loaded() if isinstance(loaded, type) else loaded

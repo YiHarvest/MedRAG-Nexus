@@ -14,9 +14,9 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from medrag_nexus.backend.feature import BackendFeature
-from medrag_nexus.backend.security import WEBUI_LOCK_COOKIE_NAME, verify_webui_lock_session
+from medrag_nexus.api.lifecycle import ApplicationLifecycle
 from medrag_nexus.core.models import WorkspaceRecord
+from medrag_nexus.identity.security import WEBUI_LOCK_COOKIE_NAME, verify_webui_lock_session
 from medrag_nexus.storage.files import ArtifactStore
 from medrag_nexus.storage.sqlite import SQLiteStore
 
@@ -47,7 +47,7 @@ async def test_outer_lock_protects_only_webui_bff_routes(tmp_path) -> None:
         webui_lock_password="outer-secret",
         webui_cleanup_retry_seconds=60,
     )
-    feature = BackendFeature(SimpleNamespace(), settings)  # type: ignore[arg-type]
+    feature = ApplicationLifecycle(SimpleNamespace(), settings)  # type: ignore[arg-type]
     app = FastAPI()
     feature.install(app)
 
@@ -123,7 +123,7 @@ async def test_failed_workspace_cleanup_retries_without_restarting_service(tmp_p
         artifacts=_CleanupArtifacts(),
         tasks=cleanup_tasks,
     )
-    feature = BackendFeature(runtime, settings)  # type: ignore[arg-type]
+    feature = ApplicationLifecycle(runtime, settings)  # type: ignore[arg-type]
     await feature.start()
     try:
         await feature.policies.mark_lifecycle(
@@ -162,7 +162,7 @@ async def test_empty_database_bootstraps_all_configured_superadmins_without_know
         webui_superadmin_password="",
         webui_superadmin_display_name="超级管理员",
     )
-    feature = BackendFeature(SimpleNamespace(metadata=metadata), settings)  # type: ignore[arg-type]
+    feature = ApplicationLifecycle(SimpleNamespace(metadata=metadata), settings)  # type: ignore[arg-type]
     await feature.start()
     try:
         accounts = await feature.store.list_accounts()
@@ -210,7 +210,7 @@ async def test_deleting_workspace_is_completed_after_service_restart(tmp_path) -
         artifacts=artifacts,
         tasks=cleanup_tasks,
     )
-    feature = BackendFeature(runtime, settings)  # type: ignore[arg-type]
+    feature = ApplicationLifecycle(runtime, settings)  # type: ignore[arg-type]
     await feature.store.ensure()
     await feature.policies.ensure()
     await feature.policies.mark_lifecycle(

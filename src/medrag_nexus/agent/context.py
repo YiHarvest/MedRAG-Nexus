@@ -9,7 +9,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from medrag_nexus.backend.account_router import AccountPrincipal
+from medrag_nexus.identity.router import AccountPrincipal
 
 PrincipalResolver = Callable[[], Awaitable[AccountPrincipal]]
 

@@ -1,4 +1,4 @@
-"""装配后端账号、注册、权限路由与维护任务。"""
+"""装配应用路由、领域存储与后台维护任务。"""
 
 from __future__ import annotations
 
@@ -9,27 +9,27 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
+from medrag_nexus.agent import AgentContext, AgentStore, ArtifactService, build_agent_tool_registry
+from medrag_nexus.agent.router import create_agent_router
+from medrag_nexus.agent.service import AgentCapabilityService
 from medrag_nexus.core.config import Settings
 from medrag_nexus.core.paths import API_V1_PREFIX, HEALTH_API_PREFIX
+from medrag_nexus.identity.audit import AuditLogExporter, reset_audit_request_id, set_audit_request_id
+from medrag_nexus.identity.models import RegisterAccountRequest
+from medrag_nexus.identity.permissions import build_default_registry
+from medrag_nexus.identity.router import DEFAULT_COOKIE_NAME, create_account_router
+from medrag_nexus.identity.security import WEBUI_LOCK_COOKIE_NAME, PasswordService, verify_webui_lock_session
+from medrag_nexus.identity.store import AccountConflictError, AccountStore
+from medrag_nexus.knowledge.policies import KnowledgePolicyStore
+from medrag_nexus.knowledge.router import create_knowledge_router
 from medrag_nexus.services.runtime import Runtime
-
-from .account_models import RegisterAccountRequest
-from .account_router import DEFAULT_COOKIE_NAME, create_account_router
-from .account_store import AccountConflictError, AccountStore
-from .agent import AgentStore, ArtifactService, build_agent_tool_registry
-from .agent.router import create_agent_router
-from .agent.service import AgentCapabilityService
-from .audit import AuditLogExporter, reset_audit_request_id, set_audit_request_id
-from .knowledge_router import create_knowledge_router
-from .permissions import build_default_registry
-from .policy_store import KnowledgePolicyStore
-from .security import WEBUI_LOCK_COOKIE_NAME, PasswordService, verify_webui_lock_session
 
 
 def _is_protected_api_path(path: str) -> bool:
@@ -38,8 +38,8 @@ def _is_protected_api_path(path: str) -> bool:
     return path.startswith(f"{API_V1_PREFIX}/") and not path.startswith(f"{HEALTH_API_PREFIX}/")
 
 
-class BackendFeature:
-    """集中管理后端存储、初始化、路由与维护任务。"""
+class ApplicationLifecycle:
+    """集中管理应用存储、路由装配、启动和清理。"""
 
     def __init__(self, runtime: Runtime, settings: Settings):
         self.runtime = runtime
@@ -78,6 +78,13 @@ class BackendFeature:
         self._agent_cleanup_task: asyncio.Task[None] | None = None
 
     def install(self, app: FastAPI) -> None:
+        def create_chat_agent_context(**values: Any) -> AgentContext:
+            return AgentContext(
+                **values,
+                action_store=self.agent_store,
+                capability_gateway=self.agent_capabilities,
+            )
+
         app.include_router(
             create_account_router(
                 self.store,
@@ -90,9 +97,8 @@ class BackendFeature:
                 self.runtime,
                 self.store,
                 self.policies,
-                agent_store=self.agent_store,
+                agent_context_factory=create_chat_agent_context,
                 agent_registry=self.agent_registry,
-                agent_capabilities=self.agent_capabilities,
             )
         )
         app.include_router(

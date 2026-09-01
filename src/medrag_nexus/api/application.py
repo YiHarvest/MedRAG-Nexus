@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from medrag_nexus.backend import BackendFeature
 from medrag_nexus.core.config import get_settings
 from medrag_nexus.mcp import bind_runtime, mcp_http_app
 from medrag_nexus.services.runtime import Runtime
@@ -16,6 +15,7 @@ from .contracts import OPENAPI_TAGS
 from .docs import install_documentation_routes
 from .health import create_health_router
 from .http import install_http_infrastructure
+from .lifecycle import ApplicationLifecycle
 
 _DESCRIPTION = """
 所有 REST 业务接口使用 `/api/v1` 前缀，并由后端账号 Session、权限与资源 ACL 保护。
@@ -38,7 +38,7 @@ def create_app(
     selected_backend_runtime = backend_runtime or (
         selected_runtime if runtime is not None else Runtime(settings.backend_runtime_settings())
     )
-    backend = BackendFeature(selected_backend_runtime, selected_settings)
+    lifecycle = ApplicationLifecycle(selected_backend_runtime, selected_settings)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -48,13 +48,13 @@ def create_app(
             await selected_runtime.start()
         if selected_backend_runtime is not selected_runtime and backend_runtime is None:
             await selected_backend_runtime.start()
-        await backend.start()
+        await lifecycle.start()
         bind_runtime(selected_runtime)
         try:
             async with mcp_http_app.router.lifespan_context(mcp_http_app):
                 yield
         finally:
-            await backend.close()
+            await lifecycle.close()
             if selected_backend_runtime is not selected_runtime and backend_runtime is None:
                 await selected_backend_runtime.close()
             if runtime is None:
@@ -69,7 +69,7 @@ def create_app(
         lifespan=lifespan,
         docs_url=None,
     )
-    backend.install(app)
+    lifecycle.install(app)
     install_http_infrastructure(app, max_file_bytes=settings.max_file_bytes)
     install_documentation_routes(app)
     app.include_router(create_health_router())

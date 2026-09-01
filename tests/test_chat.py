@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 import medrag_nexus.services.chat as chat_module
-from medrag_nexus.backend.agent.context import AgentAuthorizationError
+from medrag_nexus.agent.context import AgentAuthorizationError
 from medrag_nexus.core.models import ChatRequest, WorkspaceRecord, local_now
 from medrag_nexus.services.chat import (
     _TOOLS,

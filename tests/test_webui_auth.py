@@ -9,9 +9,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from medrag_nexus.backend import AccountStore, build_default_registry, create_account_router
-from medrag_nexus.backend.permissions import PermissionEngine, PermissionRegistry, PluginManifest
-from medrag_nexus.backend.security import PasswordService
+from medrag_nexus.identity import AccountStore, build_default_registry, create_account_router
+from medrag_nexus.identity.permissions import PermissionEngine, PermissionRegistry, PluginManifest
+from medrag_nexus.identity.security import PasswordService
 
 
 def _app(store: AccountStore) -> FastAPI:

@@ -388,8 +388,10 @@ API Key、密码、Cookie、上传正文和检索命中文本不会写入日志�
 
 | Package / Directory | Description |
 | --- | --- |
-| `src/medrag_nexus/api` | FastAPI 装配、路由、文档和 HTTP 基础设施 |
-| `src/medrag_nexus/backend` | 后端账号注册、Session、权限、知识域、知识库、ACL、审计和 Agent |
+| `src/medrag_nexus/api` | FastAPI 装配、应用生命周期、文档和 HTTP 基础设施 |
+| `src/medrag_nexus/identity` | 账号注册、Session、权限组、权限插件与审计 |
+| `src/medrag_nexus/knowledge` | 知识域、知识库、资源接口、访问策略与 ACL |
+| `src/medrag_nexus/agent` | Agent 工具、动作确认、能力网关与临时制品 |
 | `src/medrag_nexus/mcp` | FastMCP Streamable HTTP 与 AgentHub 工具 |
 | `src/medrag_nexus/services` | Runtime、Worker、任务、检索、处理、回调和维护 |
 | `src/medrag_nexus/storage` | SQLite、Redis、Elasticsearch、Milvus 与文件制品 |
