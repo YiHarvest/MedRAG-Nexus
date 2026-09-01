@@ -1,0 +1,28 @@
+# JD Knowledge 开发环境 Docker Compose 配置
+#
+# 该配置文件定义了本地开发所需的基础服务。
+# 目前仅包含 Redis 服务，用于任务队列和缓存。
+#
+# 使用方法：
+#   docker-compose up -d    # 启动服务
+#   docker-compose down     # 停止服务
+#   docker-compose logs -f  # 查看日志
+
+services:
+  # Redis 服务 - 用于任务队列和缓存
+  redis:
+    image: redis:7-alpine  # 使用 Redis 7 Alpine 轻量级镜像
+    command: ["redis-server", "--appendonly", "yes"]  # 启用 AOF 持久化
+    ports:
+      - "22002:6379"  # 避免与其他项目占用的宿主机 6379 冲突
+    volumes:
+      - redis-data:/data  # 数据持久化卷
+    healthcheck:  # 健康检查配置
+      test: ["CMD", "redis-cli", "ping"]  # 使用 redis-cli ping 命令检查
+      interval: 5s  # 检查间隔：5 秒
+      timeout: 3s  # 超时时间：3 秒
+      retries: 10  # 重试次数：10 次
+
+# 数据卷定义
+volumes:
+  redis-data:  # Redis 数据持久化卷

@@ -1,0 +1,23 @@
+.card { width:min(100%,46rem); margin-top:.65rem; padding:.85rem; border:1px solid var(--app-line); border-radius:.55rem; background:var(--app-surface-subtle); color:var(--app-text) }
+.header { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem }
+.title { display:grid; gap:.2rem }.title strong { font-size:.8rem }.title span,.copy,.meta { color:var(--app-text-muted); font-size:.7rem; line-height:1.5 }
+.details { display:grid; margin:.7rem 0 0; border:1px solid var(--app-line); border-radius:.4rem; overflow:hidden }
+.details div { display:grid; grid-template-columns:minmax(7rem,32%) 1fr; min-width:0; border-top:1px solid var(--app-line) }.details div:first-child { border-top:0 }
+.details dt,.details dd { min-width:0; margin:0; padding:.48rem .6rem; font-size:.68rem; line-height:1.45; overflow-wrap:anywhere }.details dt { background:var(--app-surface-subtle); color:var(--app-text-muted); font-weight:620 }.details dd { color:var(--app-text) }
+.badge { flex:0 0 auto; padding:.2rem .48rem; border-radius:999px; background:var(--app-accent-soft); color:var(--app-accent); font-size:.62rem; font-weight:650 }
+.badge[data-status="failed"],.badge[data-status="cancelled"],.badge[data-status="revoked"],.badge[data-status="expired"] { background:color-mix(in srgb,#da1e28 12%,transparent); color:#da1e28 }
+.copy { margin:.55rem 0 0 }.error { margin:.55rem 0 0; color:#da1e28; font-size:.7rem; line-height:1.45 }
+.actions { display:flex; flex-wrap:wrap; margin-top:.75rem; gap:.45rem }
+.button { display:inline-flex; min-height:2rem; padding:0 .7rem; align-items:center; justify-content:center; border:1px solid var(--app-line-strong); border-radius:.35rem; background:var(--app-surface); color:var(--app-text); cursor:pointer; font-size:.7rem; font-weight:620; text-decoration:none }
+.button:hover:not(:disabled) { border-color:var(--app-accent); color:var(--app-accent) }.button:disabled { opacity:.5; cursor:not-allowed }
+.buttonPrimary { border-color:var(--app-accent); background:var(--app-accent); color:#fff }.buttonPrimary:hover:not(:disabled) { background:var(--app-accent-hover); color:#fff }
+.buttonDanger { border-color:#da1e28; color:#da1e28 }
+.progress { height:.28rem; margin-top:.65rem; overflow:hidden; border-radius:999px; background:var(--app-line) }.progress>span { display:block; height:100%; background:var(--app-accent); transition:width 180ms ease }
+.fileList { display:grid; margin:.6rem 0 0; padding:0; gap:.25rem; list-style:none }.fileList li { display:flex; min-width:0; justify-content:space-between; gap:.5rem; color:var(--app-text-muted); font-size:.68rem }.fileList li span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.fileInput { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; clip-path:inset(50%) }
+.dialogBackdrop { position:fixed; z-index:500; inset:0; display:grid; padding:1rem; place-items:center; background:rgba(0,0,0,.38); backdrop-filter:blur(3px) }
+.dialog { width:min(100%,30rem); max-height:calc(100dvh - 2rem); padding:1rem; overflow-y:auto; border:1px solid var(--app-line); border-radius:.65rem; background:var(--app-surface); box-shadow:0 1rem 3rem rgba(0,0,0,.24) }
+.dialog h2 { margin:0; font-size:1rem }.dialog p { margin:.5rem 0 .9rem; color:var(--app-text-muted); font-size:.75rem; line-height:1.5 }
+.field { display:grid; margin-top:.7rem; gap:.3rem }.field label { font-size:.7rem; font-weight:620 }.field input { min-height:2.5rem; padding:0 .65rem; border:1px solid var(--app-line-strong); border-radius:.35rem; background:var(--app-surface); color:var(--app-text); font:inherit }.field input:focus { outline:2px solid var(--app-accent); outline-offset:1px }
+.notice { display:flex; align-items:flex-start; gap:.5rem }.noticeIcon { color:var(--app-accent) }
+@media (max-width:42rem) { .card { width:96% }.dialog { width:100% } }

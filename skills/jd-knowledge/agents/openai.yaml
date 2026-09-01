@@ -1,0 +1,9 @@
+# JD Knowledge OpenAI Agent 配置
+#
+# 该配置文件定义了 JD Knowledge 技能在 OpenAI 平台上的显示信息。
+# 用于在 OpenAI 的 GPT 模型中集成 JD Knowledge 功能。
+
+interface:
+  display_name: "JD Knowledge"  # 显示名称
+  short_description: "使用 JD Knowledge 添加和检索工作空间知识"  # 简短描述
+  default_prompt: "使用 $jd-knowledge 来入库文档并检索相关知识。"  # 默认提示词

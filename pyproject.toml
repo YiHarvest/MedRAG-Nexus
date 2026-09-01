@@ -1,0 +1,65 @@
+# JD Knowledge 项目配置文件
+#
+# 该文件定义了项目的元数据、依赖项、构建配置和开发工具配置。
+# 使用 Python 3.10+ 和现代 Python 包管理工具（hatchling）。
+
+[project]
+name = "jd-knowledge"  # 项目名称
+version = "0.3.0"  # 项目版本
+description = "Asynchronous multi-tenant knowledge ingestion and hybrid retrieval service"  # 项目描述
+readme = "README.md"  # README 文件路径
+requires-python = ">=3.10"  # Python 版本要求
+
+# 项目依赖项
+dependencies = [
+    "argon2-cffi>=23.1.0",  # WebUI 用户密码使用 Argon2id 哈希
+    "charset-normalizer>=3.4.0",  # 字符编码检测
+    "elasticsearch[async]>=8.17.0,<9",  # Elasticsearch 异步客户端
+    "fastapi>=0.116.0",  # FastAPI Web 框架
+    "fastmcp>=3.0.0,<4",  # MCP（Model Context Protocol）服务器
+    "httpx[socks]>=0.28.0",  # HTTP 客户端，兼容部署环境中的 SOCKS 代理
+    "mineru>=3.3.0,<4",  # 文档解析工具
+    "openai>=2.0.0,<3",  # OpenAI 兼容聊天模型客户端
+    "pydantic>=2.11.0",  # 数据验证库
+    "pydantic-settings>=2.10.0",  # 配置管理库
+    "pymilvus>=2.5.0,<3",  # Milvus 向量数据库客户端
+    "pypdf>=5.0.0",  # PDF 处理库
+    "python-docx>=1.1.0",  # Word 文档处理库
+    "python-pptx>=1.0.2",  # MinerU 解析演示文稿时需要
+    "python-multipart>=0.0.20",  # 文件上传支持
+    "redis>=5.2.0",  # Redis 客户端
+    "uvicorn[standard]>=0.35.0",  # ASGI 服务器
+]
+
+# 开发依赖项
+[dependency-groups]
+dev = [
+    "pytest>=8.4.0",  # 测试框架
+    "pytest-asyncio>=1.1.0",  # 异步测试支持
+    "ruff>=0.12.0",  # Python 代码检查和格式化工具
+]
+
+# 构建系统配置
+[build-system]
+requires = ["hatchling"]  # 构建工具依赖
+build-backend = "hatchling.build"  # 构建后端
+
+# Hatch 构建配置
+[tool.hatch.build.targets.wheel]
+packages = ["src/jd_knowledge"]  # 包路径
+
+# Pytest 测试配置
+[tool.pytest.ini_options]
+testpaths = ["tests"]  # 测试文件路径
+pythonpath = ["src"]  # Python 模块路径
+asyncio_mode = "auto"  # 异步测试模式
+markers = ["integration: requires configured external infrastructure"]  # 测试标记
+
+# Ruff 代码检查配置
+[tool.ruff]
+line-length = 120  # 每行最大字符数
+target-version = "py310"  # 目标 Python 版本
+
+# Ruff 检查规则配置
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]  # 启用的检查规则
