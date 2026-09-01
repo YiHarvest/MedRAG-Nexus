@@ -283,7 +283,7 @@ REST 业务接口统一使用 `/api/v1/*`，由后端账号 Session、权限节�
 | HTTP | `POST /api/v1/retrieval`、`POST /api/v1/chat/stream` | 混合检索与流式聊天 |
 | HTTP | `/api/v1/tasks/{task_id}` | 查询或取消异步任务 |
 | HTTP | `/api/v1/agent/*` | Agent 动作、确认和临时制品 |
-| HTTP | `/api/v1/health/live`、`/api/v1/health/ready` | 唯一无需账号 Session 的存活与就绪检查 |
+| HTTP | `/api/v1/health/live`、`/api/v1/health/ready` | 无需账号身份的公开存活与就绪检查 |
 | MCP | `add` | 新增文件或字符串 |
 | MCP | `list_workspaces`、`list_files` | 查询 Workspace 和资源 |
 | MCP | `delete_file` | 删除完整资源 |

@@ -51,4 +51,4 @@ GET /api/v1/health/ready
 GET /api/v1/health/ready?details=true
 ```
 
-健康检查是唯一公开的 REST 路由，可直接用于 Docker、Kubernetes 或反向代理探针。精确请求与响应模型以 `/openapi.json` 为准。
+健康检查是不建立账号 Session 的公开基础设施路由，可直接用于 Docker、Kubernetes 或反向代理探针。注册和登录也是匿名调用入口，但它们用于建立账号 Session，并仍可能受部署外层门锁保护。精确请求与响应模型以 `/openapi.json` 为准。
