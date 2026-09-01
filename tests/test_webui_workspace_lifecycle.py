@@ -12,13 +12,13 @@ from uuid import uuid4
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from jd_knowledge.core.models import WorkspaceRecord, local_now
-from jd_knowledge.storage.files import ArtifactStore
-from jd_knowledge.storage.sqlite import SQLiteStore
-from jd_knowledge.webui import WebUiStore, build_default_registry, create_webui_router
-from jd_knowledge.webui.knowledge_router import create_knowledge_router
-from jd_knowledge.webui.policy_store import KnowledgePolicyStore
-from jd_knowledge.webui.security import PasswordService
+from medrag_nexus.core.models import WorkspaceRecord, local_now
+from medrag_nexus.storage.files import ArtifactStore
+from medrag_nexus.storage.sqlite import SQLiteStore
+from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
+from medrag_nexus.webui.knowledge_router import create_knowledge_router
+from medrag_nexus.webui.policy_store import KnowledgePolicyStore
+from medrag_nexus.webui.security import PasswordService
 
 
 class _Tasks:

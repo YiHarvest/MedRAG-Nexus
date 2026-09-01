@@ -1,4 +1,4 @@
-# JD Knowledge 开发环境 Docker Compose 配置
+# MedRAG-Nexus 开发/生产环境 Docker Compose 配置
 #
 # 该配置文件定义了本地开发所需的基础服务。
 # 目前仅包含 Redis 服务，用于任务队列和缓存。
@@ -7,6 +7,9 @@
 #   docker-compose up -d    # 启动服务
 #   docker-compose down     # 停止服务
 #   docker-compose logs -f  # 查看日志
+
+# Compose 项目和命名卷随 APP_MODE 隔离；Docker 项目名必须使用小写。
+name: "medrag-nexus-${APP_MODE:-dev}"
 
 services:
   # Redis 服务 - 用于任务队列和缓存

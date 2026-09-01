@@ -20,7 +20,7 @@ import {
 } from "@/lib/webui-api";
 import type { Workspace } from "@/lib/types";
 
-const WORKSPACE_KEY = "jd-knowledge-workspace-v3";
+const WORKSPACE_KEY = "medrag-nexus-workspace-v3";
 const EMPTY_WORKSPACE: Workspace = { userId: "", workspaceId: "", workspaceName: "" };
 
 interface WorkspaceContextValue {

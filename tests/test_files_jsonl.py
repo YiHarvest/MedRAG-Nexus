@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from jd_knowledge.storage.files import ArtifactStore
+from medrag_nexus.storage.files import ArtifactStore
 
 
 async def test_string_records_are_jsonl_and_preserve_original_content(tmp_path) -> None:

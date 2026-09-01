@@ -28,7 +28,7 @@ docs/
 docs/*
 !docs/assets/
 docs/assets/*
-!docs/assets/jd-knowledge-runtime.svg
+!docs/assets/medrag-nexus-runtime.svg
 SimBrain/
 .agents/
 skills-lock.json

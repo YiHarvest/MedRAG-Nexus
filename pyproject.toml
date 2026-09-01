@@ -1,10 +1,10 @@
-# JD Knowledge 项目配置文件
+# MedRAG-Nexus 项目配置文件
 #
 # 该文件定义了项目的元数据、依赖项、构建配置和开发工具配置。
 # 使用 Python 3.10+ 和现代 Python 包管理工具（hatchling）。
 
 [project]
-name = "jd-knowledge"  # 项目名称
+name = "medrag-nexus"  # 项目名称
 version = "0.3.0"  # 项目版本
 description = "Asynchronous multi-tenant knowledge ingestion and hybrid retrieval service"  # 项目描述
 readme = "README.md"  # README 文件路径
@@ -31,6 +31,11 @@ dependencies = [
     "uvicorn[standard]>=0.35.0",  # ASGI 服务器
 ]
 
+[project.urls]
+Homepage = "https://github.com/YiHarvest/MedRAG-Nexus"
+Repository = "https://github.com/YiHarvest/MedRAG-Nexus"
+Issues = "https://github.com/YiHarvest/MedRAG-Nexus/issues"
+
 # 开发依赖项
 [dependency-groups]
 dev = [
@@ -46,7 +51,7 @@ build-backend = "hatchling.build"  # 构建后端
 
 # Hatch 构建配置
 [tool.hatch.build.targets.wheel]
-packages = ["src/jd_knowledge"]  # 包路径
+packages = ["src/medrag_nexus"]  # 包路径
 
 # Pytest 测试配置
 [tool.pytest.ini_options]

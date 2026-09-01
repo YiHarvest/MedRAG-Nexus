@@ -9,9 +9,9 @@ from pathlib import Path
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from jd_knowledge.webui import WebUiStore, build_default_registry, create_webui_router
-from jd_knowledge.webui.permissions import PermissionEngine, PermissionRegistry, PluginManifest
-from jd_knowledge.webui.security import PasswordService
+from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
+from medrag_nexus.webui.permissions import PermissionEngine, PermissionRegistry, PluginManifest
+from medrag_nexus.webui.security import PasswordService
 
 
 def _app(store: WebUiStore) -> FastAPI:

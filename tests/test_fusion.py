@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from jd_knowledge.core.ids import content_hash, new_id
-from jd_knowledge.core.models import ChunkRecord
-from jd_knowledge.pipeline.fusion import reciprocal_rank_fusion
+from medrag_nexus.core.ids import content_hash, new_id
+from medrag_nexus.core.models import ChunkRecord
+from medrag_nexus.pipeline.fusion import reciprocal_rank_fusion
 
 
 def make_chunk(content: str, ordinal: int) -> ChunkRecord:

@@ -5,9 +5,9 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from jd_knowledge.core.ids import content_hash, new_id
-from jd_knowledge.core.models import ChunkRecord, RetrievalRequest
-from jd_knowledge.services.retrieval import retrieve
+from medrag_nexus.core.ids import content_hash, new_id
+from medrag_nexus.core.models import ChunkRecord, RetrievalRequest
+from medrag_nexus.services.retrieval import retrieve
 
 WORKSPACE_ID = "workspace_11111111-1111-5111-8111-111111111111"
 

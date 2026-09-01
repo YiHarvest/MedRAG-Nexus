@@ -1,6 +1,6 @@
 """验证模型客户端的兼容接口地址规范化。"""
 
-from jd_knowledge.pipeline.models import _endpoint
+from medrag_nexus.pipeline.models import _endpoint
 
 
 def test_openai_compatible_endpoint_normalization() -> None:

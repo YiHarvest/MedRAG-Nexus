@@ -1,4 +1,4 @@
-const DATABASE_NAME = "jd-knowledge-browser-state";
+const DATABASE_NAME = "medrag-nexus-browser-state";
 const DATABASE_VERSION = 1;
 const STORE_NAME = "values";
 

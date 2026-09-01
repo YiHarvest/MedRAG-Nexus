@@ -7,7 +7,7 @@ import base64
 import pytest
 from pydantic import ValidationError
 
-from jd_knowledge.core.ids import (
+from medrag_nexus.core.ids import (
     canonical_text,
     chunk_id,
     content_hash,
@@ -17,7 +17,7 @@ from jd_knowledge.core.ids import (
     normalize_workspace_name,
     text_content_hash,
 )
-from jd_knowledge.core.models import (
+from medrag_nexus.core.models import (
     AddRequest,
     DeleteFileRequest,
     DomainError,
@@ -25,7 +25,7 @@ from jd_knowledge.core.models import (
     TaskRecord,
     TaskResponse,
 )
-from jd_knowledge.services.files import FileService, _decode_file
+from medrag_nexus.services.files import FileService, _decode_file
 
 WORKSPACE_ID = "workspace_11111111-1111-5111-8111-111111111111"
 

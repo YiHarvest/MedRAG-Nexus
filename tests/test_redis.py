@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from redis.exceptions import TimeoutError as RedisTimeoutError
 
-from jd_knowledge.storage.redis import RedisCoordinator
+from medrag_nexus.storage.redis import RedisCoordinator
 
 
 async def test_dequeue_treats_idle_read_timeout_as_empty_when_redis_is_healthy() -> None:

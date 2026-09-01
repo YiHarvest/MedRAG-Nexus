@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from jd_knowledge.core.models import TaskRecord, TaskStatus
-from jd_knowledge.services.files import FileService
+from medrag_nexus.core.models import TaskRecord, TaskStatus
+from medrag_nexus.services.files import FileService
 
 
 class FakeMetadata:

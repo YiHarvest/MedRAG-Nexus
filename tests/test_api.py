@@ -6,9 +6,9 @@ import base64
 
 from httpx import ASGITransport, AsyncClient
 
-from jd_knowledge.api import main as api_main
-from jd_knowledge.api.main import create_app
-from jd_knowledge.core.models import (
+from medrag_nexus.api import main as api_main
+from medrag_nexus.api.main import create_app
+from medrag_nexus.core.models import (
     DeleteStringRequest,
     DependencyState,
     FileListResponse,
@@ -68,7 +68,7 @@ async def test_root_returns_service_info() -> None:
         response = await client.get("/")
     assert response.status_code == 200
     body = response.json()
-    assert body["service"] == "jd-knowledge"
+    assert body["service"] == "medrag-nexus"
     assert body["docs"] == "/docs"
     assert body["health"] == "/api/v1/health/live"
 
@@ -89,7 +89,7 @@ async def test_swagger_hides_send_empty_value_controls() -> None:
 
 def test_openapi_add_contract_is_multipart_file_or_str() -> None:
     schema = create_app(FakeRuntime()).openapi()  # type: ignore[arg-type]
-    assert schema["info"]["title"] == "JD Knowledge 知识库服务"
+    assert schema["info"]["title"] == "MedRAG-Nexus 知识库服务"
     assert [tag["name"] for tag in schema["tags"]] == [
         "知识新增",
         "列表",

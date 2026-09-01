@@ -6,10 +6,10 @@ import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
-from jd_knowledge.core.ids import file_id, new_id, new_task_id
-from jd_knowledge.core.models import ResourceRecord, TaskRecord, local_now
-from jd_knowledge.pipeline.parsers import ParseResult
-from jd_knowledge.services import processing
+from medrag_nexus.core.ids import file_id, new_id, new_task_id
+from medrag_nexus.core.models import ResourceRecord, TaskRecord, local_now
+from medrag_nexus.pipeline.parsers import ParseResult
+from medrag_nexus.services import processing
 
 
 async def test_large_file_parsing_keeps_advancing_before_mineru_returns(monkeypatch, tmp_path) -> None:

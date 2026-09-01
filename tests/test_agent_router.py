@@ -8,11 +8,11 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from jd_knowledge.webui import WebUiStore, build_default_registry, create_webui_router
-from jd_knowledge.webui.agent import AgentStore, ArtifactService
-from jd_knowledge.webui.agent.router import create_agent_router
-from jd_knowledge.webui.policy_store import KnowledgePolicyStore
-from jd_knowledge.webui.security import PasswordService
+from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
+from medrag_nexus.webui.agent import AgentStore, ArtifactService
+from medrag_nexus.webui.agent.router import create_agent_router
+from medrag_nexus.webui.policy_store import KnowledgePolicyStore
+from medrag_nexus.webui.security import PasswordService
 
 
 async def _setup(tmp_path):

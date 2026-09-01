@@ -6,8 +6,8 @@ import json
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
-from jd_knowledge.core.ids import chunk_id, content_hash, new_id, new_task_id
-from jd_knowledge.core.models import (
+from medrag_nexus.core.ids import chunk_id, content_hash, new_id, new_task_id
+from medrag_nexus.core.models import (
     ChunkRecord,
     DeleteStringRequest,
     ResourceRecord,
@@ -16,10 +16,10 @@ from jd_knowledge.core.models import (
     WorkspaceRecord,
     local_now,
 )
-from jd_knowledge.services.files import FileService
-from jd_knowledge.services.processing import _compensate_delete, process_delete
-from jd_knowledge.storage.files import ArtifactStore
-from jd_knowledge.storage.sqlite import SQLiteStore
+from medrag_nexus.services.files import FileService
+from medrag_nexus.services.processing import _compensate_delete, process_delete
+from medrag_nexus.storage.files import ArtifactStore
+from medrag_nexus.storage.sqlite import SQLiteStore
 
 
 class FakeTasks:

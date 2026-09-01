@@ -200,12 +200,12 @@ export function DocumentsView() {
 
   const openResourcePanel = useCallback(() => {
     setResourcePanelOpen(true);
-    window.localStorage.setItem("jd-knowledge-resource-panel", "open");
+    window.localStorage.setItem("medrag-nexus-resource-panel", "open");
   }, []);
 
   const closeResourcePanel = useCallback(() => {
     setResourcePanelOpen(false);
-    window.localStorage.setItem("jd-knowledge-resource-panel", "closed");
+    window.localStorage.setItem("medrag-nexus-resource-panel", "closed");
   }, []);
 
   const shellHeaderAction = useMemo(() => ({
@@ -277,7 +277,7 @@ export function DocumentsView() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const saved = window.localStorage.getItem("jd-knowledge-resource-panel");
+      const saved = window.localStorage.getItem("medrag-nexus-resource-panel");
       if (saved === "open") setResourcePanelOpen(true);
     }, 0);
     return () => window.clearTimeout(timer);

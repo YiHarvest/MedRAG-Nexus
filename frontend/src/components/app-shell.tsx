@@ -61,7 +61,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const saved = window.localStorage.getItem("jd-knowledge-theme");
+      const saved = window.localStorage.getItem("medrag-nexus-theme");
       const next = saved === "light" || saved === "dark" || saved === "system"
         ? saved
         : "system";
@@ -77,7 +77,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       const nextTheme: CarbonTheme = isDark ? "g100" : "white";
       setTheme(nextTheme);
       document.documentElement.dataset.theme = nextTheme;
-      window.localStorage.setItem("jd-knowledge-theme", mode);
+      window.localStorage.setItem("medrag-nexus-theme", mode);
     };
     syncTheme();
     if (mode !== "system") return;
@@ -118,11 +118,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link
           className="brand"
           href="/documents"
-          aria-label="JD Knowledge 首页"
+          aria-label="MedRAG-Nexus 首页"
           onClick={() => setMobileOpen(false)}
         >
           <span className="brand-mark" aria-hidden="true"><span>JD</span></span>
-          <span className="brand-copy"><strong>JD Knowledge</strong></span>
+          <span className="brand-copy"><strong>MedRAG-Nexus</strong></span>
         </Link>
         {mobile ? (
           <button

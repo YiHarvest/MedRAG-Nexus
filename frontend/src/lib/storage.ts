@@ -1,6 +1,6 @@
 import type { RecentTask } from "@/lib/types";
 
-const RECENT_TASKS_KEY = "jd-knowledge-recent-tasks";
+const RECENT_TASKS_KEY = "medrag-nexus-recent-tasks";
 
 export function readRecentTasks(): RecentTask[] {
   if (typeof window === "undefined") return [];
@@ -15,7 +15,7 @@ export function readRecentTasks(): RecentTask[] {
 export function rememberTask(task: RecentTask): void {
   const next = [task, ...readRecentTasks().filter((item) => item.taskId !== task.taskId)].slice(0, 12);
   window.localStorage.setItem(RECENT_TASKS_KEY, JSON.stringify(next));
-  window.dispatchEvent(new CustomEvent("jd-knowledge-task-added"));
+  window.dispatchEvent(new CustomEvent("medrag-nexus-task-added"));
 }
 
 export function formatDate(value?: string | null): string {

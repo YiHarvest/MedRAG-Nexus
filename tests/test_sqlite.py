@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import sqlite3
 
-from jd_knowledge.core.ids import file_id, new_id, new_task_id
-from jd_knowledge.core.models import ResourceRecord, TaskProgress, TaskRecord, TaskStatus, WorkspaceRecord, local_now
-from jd_knowledge.storage.sqlite import SQLiteStore
+from medrag_nexus.core.ids import file_id, new_id, new_task_id
+from medrag_nexus.core.models import ResourceRecord, TaskProgress, TaskRecord, TaskStatus, WorkspaceRecord, local_now
+from medrag_nexus.storage.sqlite import SQLiteStore
 
 
 async def test_list_users_returns_sorted_sqlite_users_and_basic_stats(tmp_path) -> None:

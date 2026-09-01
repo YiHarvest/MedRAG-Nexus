@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键安装 JD Knowledge 后端与 WebUI 的锁定版本依赖。
+# 一键安装 MedRAG-Nexus 后端与 WebUI 的锁定版本依赖。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

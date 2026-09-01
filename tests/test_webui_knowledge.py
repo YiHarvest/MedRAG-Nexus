@@ -12,14 +12,14 @@ from unittest.mock import AsyncMock
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from jd_knowledge.core.ids import new_id
-from jd_knowledge.core.models import ResourceRecord, TaskAccepted, TaskRecord, WorkspaceRecord, local_now
-from jd_knowledge.services.files import FileService
-from jd_knowledge.storage.sqlite import SQLiteStore
-from jd_knowledge.webui import WebUiStore, build_default_registry, create_webui_router
-from jd_knowledge.webui.knowledge_router import create_knowledge_router
-from jd_knowledge.webui.policy_store import USER_POLICY_ACTIONS, KnowledgePolicyStore, PolicyBinding
-from jd_knowledge.webui.security import PasswordService
+from medrag_nexus.core.ids import new_id
+from medrag_nexus.core.models import ResourceRecord, TaskAccepted, TaskRecord, WorkspaceRecord, local_now
+from medrag_nexus.services.files import FileService
+from medrag_nexus.storage.sqlite import SQLiteStore
+from medrag_nexus.webui import WebUiStore, build_default_registry, create_webui_router
+from medrag_nexus.webui.knowledge_router import create_knowledge_router
+from medrag_nexus.webui.policy_store import USER_POLICY_ACTIONS, KnowledgePolicyStore, PolicyBinding
+from medrag_nexus.webui.security import PasswordService
 
 
 class FakeTasks:

@@ -7,16 +7,16 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-import jd_knowledge.services.chat as chat_module
-from jd_knowledge.core.models import ChatRequest, WorkspaceRecord, local_now
-from jd_knowledge.services.chat import (
+import medrag_nexus.services.chat as chat_module
+from medrag_nexus.core.models import ChatRequest, WorkspaceRecord, local_now
+from medrag_nexus.services.chat import (
     _TOOLS,
     ChatService,
     _fallback_tool_call,
     _parse_dsml_tool_calls,
     _webui_system_prompt,
 )
-from jd_knowledge.webui.agent.context import AgentAuthorizationError
+from medrag_nexus.webui.agent.context import AgentAuthorizationError
 
 
 class FakeStream:
@@ -400,7 +400,7 @@ async def test_identity_question_is_answered_without_model_or_tools():
     events = [event async for event in service.stream(request)]
 
     answer = "".join(event_data(event)["content"] for event in events if "event: delta" in event)
-    assert "JD Knowledge 知识助手" in answer
+    assert "MedRAG-Nexus 知识助手" in answer
     assert "tool_call" not in answer
     assert client.completions.calls == []
     done = next(event_data(event) for event in events if "event: done" in event)

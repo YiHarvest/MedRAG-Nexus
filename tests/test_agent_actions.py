@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from jd_knowledge.webui.agent import (
+from medrag_nexus.webui.agent import (
     ActionOwnershipError,
     ActionPayloadError,
     ActionStateError,
@@ -16,8 +16,8 @@ from jd_knowledge.webui.agent import (
     IdempotencyConflictError,
     InvalidConfirmationError,
 )
-from jd_knowledge.webui.agent.service import ConfirmedActionExecutor
-from jd_knowledge.webui.agent.tools import build_default_agent_tool_registry
+from medrag_nexus.webui.agent.service import ConfirmedActionExecutor
+from medrag_nexus.webui.agent.tools import build_default_agent_tool_registry
 
 
 async def test_action_lifecycle_is_account_bound_and_idempotent(tmp_path) -> None:

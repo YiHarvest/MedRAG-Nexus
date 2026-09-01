@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jd_knowledge.core.ids import file_id, new_id
-from jd_knowledge.core.models import ResourceRecord, WorkspaceRecord, local_now
-from jd_knowledge.services.files import FileService
+from medrag_nexus.core.ids import file_id, new_id
+from medrag_nexus.core.models import ResourceRecord, WorkspaceRecord, local_now
+from medrag_nexus.services.files import FileService
 
 
 def _resource(workspace: WorkspaceRecord, name: str) -> ResourceRecord:

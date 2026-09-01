@@ -1,8 +1,10 @@
 <div align="center">
 
-  <h1>JD Knowledge</h1>
+  <h1>MedRAG-Nexus</h1>
 
   <p align="center">面向 AgentHub 与自有 WebUI 的多用户、多 Workspace 异步知识入库、权限治理和混合检索服务。</p>
+
+  <p align="center"><a href="https://github.com/YiHarvest/MedRAG-Nexus">GitHub Repository</a></p>
 
   <p align="center">
     <img src="https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
@@ -21,7 +23,7 @@
     <tr>
       <td colspan="3" align="center">
         <a href="#architecture---双-runtime-隔离架构">
-          <img src="docs/assets/jd-knowledge-runtime.svg" alt="JD Knowledge Runtime Architecture" width="900">
+          <img src="docs/assets/medrag-nexus-runtime.svg" alt="MedRAG-Nexus Runtime Architecture" width="900">
         </a>
       </td>
     </tr>
@@ -94,6 +96,8 @@
 ```dotenv
 # 运行模式：dev 或 prd；安装、启动和停止脚本都会读取此值
 APP_MODE=prd
+DEV_DATABASE_NAME=MedRAG-Nexus-dev
+PRD_DATABASE_NAME=MedRAG-Nexus-prd
 
 # 首次启动且账号表为空时创建 WebUI 超级管理员
 WEBUI_SUPERADMIN_USERNAME=admin
@@ -176,9 +180,9 @@ WEBUI_SUPERADMINS_JSON='[{"login_name":"admin-a","display_name":"管理员 A","p
 
 | 服务 | 是否必需 | 一键脚本是否管理 | 关键变量 |
 | --- | --- | --- | --- |
-| Redis 7 | 必需 | 默认管理 | `MANAGE_REDIS`、`REDIS_URL`、`REDIS_QUEUE_NAME` |
-| Elasticsearch 8.x | 必需 | 否 | `ELASTICSEARCH_URL`、认证信息、三个索引名 |
-| Milvus 2.5+ | 必需 | 否 | `MILVUS_HOST`、`MILVUS_PORT`、`MILVUS_TOKEN`、`MILVUS_COLLECTION` |
+| Redis 7 | 必需 | 默认管理 | `MANAGE_REDIS`、`REDIS_URL`；队列名由 `APP_MODE` 派生 |
+| Elasticsearch 8.x | 必需 | 否 | `ELASTICSEARCH_URL`、认证信息；索引名由 `APP_MODE` 派生 |
+| Milvus 2.5+ | 必需 | 否 | `MILVUS_HOST`、`MILVUS_PORT`、`MILVUS_TOKEN`；集合名由 `APP_MODE` 派生 |
 | OpenAI-compatible Embedding | 必需 | 否 | `OPENAI_EMBEDDING_URL`、Key、模型、维度 |
 | OpenAI-compatible LLM | WebUI 聊天必需 | 否 | `LLM_URL`、`LLM_MODEL`、`LLM_KEY` |
 | MinerU 远端服务 | 可选；Python 包已由 uv 安装 | 否 | `MINERU_URL`、`MINERU_BACKEND`、并发与超时 |
@@ -263,7 +267,7 @@ WEBUI_TRUSTED_PROXY_HOPS=1
 WEBUI_COOKIE_SECURE=true
 ```
 
-**[权限插件规范](docs/webui_permission_plugins.md)** | **[AgentHub Skill](skills/jd-knowledge/SKILL.md)**
+**[权限插件规范](docs/webui_permission_plugins.md)** | **[AgentHub Skill](skills/medrag-nexus/SKILL.md)**
 
 ---
 
@@ -289,7 +293,7 @@ WEBUI_COOKIE_SECURE=true
 > [!WARNING]
 > `/api/v1/*` 与 `/mcp` 为兼容现有 AgentHub 调用方而保留无鉴权契约。不要直接暴露到不可信网络；调用方必须保证 `user_id` 和 Workspace 的使用范围正确。
 
-**[HTTP API 文档](docs/jd_knowledge_api.md)** | **[MCP 工具契约](skills/jd-knowledge/references/mcp-tools.md)** | **[Skill API Contract](skills/jd-knowledge/references/api-contract.md)**
+**[HTTP API 文档](docs/medrag_nexus_api.md)** | **[MCP 工具契约](skills/medrag-nexus/references/mcp-tools.md)** | **[Skill API Contract](skills/medrag-nexus/references/api-contract.md)**
 
 ---
 
@@ -348,23 +352,18 @@ WEBUI_COOKIE_SECURE=true
 
 ```text
 ./data/
-├── agenthub.sqlite3
-├── workspaces/{sha256(user_id)}/{workspace_id}/
-│   ├── files/{file_id}/
-│   │   ├── raw/{file_name}
-│   │   └── document.md
-│   └── strings.jsonl
-├── v3_staging/{task_id}/
-├── v3_recycle/{task_id}/
-├── webui/
-│   ├── jd_knowledge_webui.sqlite3
-│   ├── workspaces/{sha256(user_id)}/{workspace_id}/
-│   ├── v3_staging/{task_id}/
-│   └── v3_recycle/{task_id}/
-└── audit/webui/webui-audit-YYYY-MM-DD.jsonl
+└── MedRAG-Nexus-{dev|prd}/
+    ├── MedRAG-Nexus-{dev|prd}.sqlite3
+    ├── workspaces/{sha256(user_id)}/{workspace_id}/
+    ├── v3_staging/{task_id}/
+    ├── v3_recycle/{task_id}/
+    ├── webui/
+    │   ├── MedRAG-Nexus-{dev|prd}-webui.sqlite3
+    │   └── workspaces/{sha256(user_id)}/{workspace_id}/
+    └── audit/webui/webui-audit-YYYY-MM-DD.jsonl
 ```
 
-首次 v3 启动会删除旧 v2 Elasticsearch 索引、Milvus Collection 与旧文件布局，并写入迁移标记；旧数据不会自动重新入库。
+`APP_MODE=dev` 与 `APP_MODE=prd` 使用完全不同的 SQLite 文件、Elasticsearch 索引、Milvus Collection、Redis 队列和文件目录。Elasticsearch 使用 `medrag-nexus-{mode}-*`，Milvus 使用后端允许的 `medrag_nexus_{mode}_*`。
 
 ---
 
@@ -374,10 +373,10 @@ WEBUI_COOKIE_SECURE=true
 | --- | --- |
 | `.run/backend.log` | 一键脚本托管的后端 stdout / stderr |
 | `.run/webui.log` | 一键脚本托管的 Next.js stdout / stderr |
-| `data/log/api/YYYY-MM-DD.log` | HTTP / MCP 请求、状态码、大小、耗时和 Worker 生命周期 |
-| `data/log/retrieval/YYYY-MM-DD.log` | BM25、向量召回、RRF、Rerank 与总耗时 |
-| `data/log/tasks/{task_id}.log` | 单个异步任务的解析、Embedding、索引、重试和补偿阶段 |
-| `data/audit/webui/webui-audit-YYYY-MM-DD.jsonl` | WebUI 身份、请求、资源操作与权限变更 |
+| `data/MedRAG-Nexus-{mode}/log/api/YYYY-MM-DD.log` | HTTP / MCP 请求、状态码、大小、耗时和 Worker 生命周期 |
+| `data/MedRAG-Nexus-{mode}/log/retrieval/YYYY-MM-DD.log` | BM25、向量召回、RRF、Rerank 与总耗时 |
+| `data/MedRAG-Nexus-{mode}/log/tasks/{task_id}.log` | 单个异步任务的解析、Embedding、索引、重试和补偿阶段 |
+| `data/MedRAG-Nexus-{mode}/audit/webui/webui-audit-YYYY-MM-DD.jsonl` | WebUI 身份、请求、资源操作与权限变更 |
 
 API Key、密码、Cookie、上传正文和检索命中文本不会写入日志。业务日志默认保留 7 天；WebUI 审计默认保留 3 个自然月。
 
@@ -387,23 +386,23 @@ API Key、密码、Cookie、上传正文和检索命中文本不会写入日志�
 
 | Package / Directory | Description |
 | --- | --- |
-| `src/jd_knowledge/api` | FastAPI 装配、公开路由、文档和 HTTP 基础设施 |
-| `src/jd_knowledge/mcp` | FastMCP Streamable HTTP 与 AgentHub 工具 |
-| `src/jd_knowledge/services` | Runtime、Worker、任务、检索、处理、回调和维护 |
-| `src/jd_knowledge/storage` | SQLite、Redis、Elasticsearch、Milvus 与文件制品 |
-| `src/jd_knowledge/pipeline` | 解析、Markdown、切块与融合模型 |
-| `src/jd_knowledge/webui` | 账号、Session、权限、ACL、审计和 Agent BFF |
+| `src/medrag_nexus/api` | FastAPI 装配、公开路由、文档和 HTTP 基础设施 |
+| `src/medrag_nexus/mcp` | FastMCP Streamable HTTP 与 AgentHub 工具 |
+| `src/medrag_nexus/services` | Runtime、Worker、任务、检索、处理、回调和维护 |
+| `src/medrag_nexus/storage` | SQLite、Redis、Elasticsearch、Milvus 与文件制品 |
+| `src/medrag_nexus/pipeline` | 解析、Markdown、切块与融合模型 |
+| `src/medrag_nexus/webui` | 账号、Session、权限、ACL、审计和 Agent BFF |
 | `frontend` | Next.js 16 + React 19 + Carbon Design System |
-| `skills/jd-knowledge` | AgentHub Skill 与 API/MCP 契约 |
+| `skills/medrag-nexus` | AgentHub Skill 与 API/MCP 契约 |
 | `scripts` | 锁定安装、一键启动和一键停止 |
 
 ## Resources
 
 - [完整环境变量](.env.example) — 所有运行时配置和默认值
-- [HTTP API 文档](docs/jd_knowledge_api.md) — API 用法与请求响应
+- [HTTP API 文档](docs/medrag_nexus_api.md) — API 用法与请求响应
 - [WebUI 权限插件规范](docs/webui_permission_plugins.md) — 外部权限插件扩展点
-- [AgentHub Skill](skills/jd-knowledge/SKILL.md) — Agent 使用说明
-- [系统架构 SVG](docs/assets/jd-knowledge-runtime.svg) — 支持深浅色显示的可编辑矢量图
+- [AgentHub Skill](skills/medrag-nexus/SKILL.md) — Agent 使用说明
+- [系统架构 SVG](docs/assets/medrag-nexus-runtime.svg) — 支持深浅色显示的可编辑矢量图
 
 ## Development
 
@@ -421,7 +420,7 @@ npm --prefix frontend run build
 
 ```bash
 export DOCKER_HOST=unix:///run/podman/podman.sock
-cd /root/jd_knowledge
+cd /root/MedRAG-Nexus
 git pull --ff-only origin main
 ./scripts/start.sh
 ```
@@ -430,6 +429,6 @@ git pull --ff-only origin main
 
 ```bash
 export DOCKER_HOST=unix:///run/podman/podman.sock
-cd /root/jd_knowledge
+cd /root/medrag_nexus
 ./scripts/stop.sh
 ```

@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from jd_knowledge.pipeline.parsers import (
+from medrag_nexus.pipeline.parsers import (
     _mineru_file_api,
     _mineru_http_client,
     _read_mineru_markdown,
@@ -78,7 +78,7 @@ async def test_text_parser_reports_detailed_progress(tmp_path, monkeypatch) -> N
     async def inline_to_thread(operation, *args, **kwargs):
         return operation(*args, **kwargs)
 
-    monkeypatch.setattr("jd_knowledge.pipeline.parsers.asyncio.to_thread", inline_to_thread)
+    monkeypatch.setattr("medrag_nexus.pipeline.parsers.asyncio.to_thread", inline_to_thread)
     path = tmp_path / "note.txt"
     path.write_text("# 知识\n\n正文", encoding="utf-8")
     events: list[tuple[str, str, dict[str, object]]] = []
@@ -124,8 +124,8 @@ async def test_mineru_file_api_reports_connection_and_response_details(tmp_path,
         async def post(self, *args, **kwargs):
             return FakeResponse()
 
-    monkeypatch.setattr("jd_knowledge.pipeline.parsers.asyncio.to_thread", inline_to_thread)
-    monkeypatch.setattr("jd_knowledge.pipeline.parsers.httpx.AsyncClient", lambda **kwargs: FakeClient())
+    monkeypatch.setattr("medrag_nexus.pipeline.parsers.asyncio.to_thread", inline_to_thread)
+    monkeypatch.setattr("medrag_nexus.pipeline.parsers.httpx.AsyncClient", lambda **kwargs: FakeClient())
     path = tmp_path / "paper.pdf"
     path.write_bytes(b"%PDF-1.7\nexample")
     settings = SimpleNamespace(
@@ -162,7 +162,7 @@ async def test_mineru_http_client_limits_page_concurrency_and_extends_timeout(tm
         output.mkdir()
         (output / "document.md").write_text("# Parsed", encoding="utf-8")
         source_output = kwargs["output_dir"]
-        monkeypatch.setattr("jd_knowledge.pipeline.parsers._read_mineru_markdown", lambda path: "# Parsed")
+        monkeypatch.setattr("medrag_nexus.pipeline.parsers._read_mineru_markdown", lambda path: "# Parsed")
         assert source_output
 
     monkeypatch.setattr("mineru.cli.common.aio_do_parse", fake_parse)

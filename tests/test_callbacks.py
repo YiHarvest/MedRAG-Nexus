@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import httpx
 
-from jd_knowledge.core.ids import new_task_id
-from jd_knowledge.core.models import TaskProgress, TaskRecord, TaskStatus
-from jd_knowledge.services import callbacks
+from medrag_nexus.core.ids import new_task_id
+from medrag_nexus.core.models import TaskProgress, TaskRecord, TaskStatus
+from medrag_nexus.services import callbacks
 
 
 class CapturingTaskLog:
@@ -50,7 +50,7 @@ async def test_callback_posts_task_id_status_progress_and_result(monkeypatch) ->
     assert requests[0][1]["task_id"] == "a" * 32
     assert requests[0][1]["progress"]["percent"] == 100.0
     assert requests[0][1]["result"] == {"count": 2}
-    assert requests[0][2]["X-JD-Knowledge-Task-ID"] == "a" * 32
+    assert requests[0][2]["X-MedRAG-Nexus-Task-ID"] == "a" * 32
     assert runtime.task_log.events[0][2]["callback_url"] == "https://callback.example/hook"
 
 

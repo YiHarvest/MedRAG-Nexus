@@ -14,18 +14,18 @@ from types import SimpleNamespace
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from jd_knowledge.core.models import WorkspaceRecord
-from jd_knowledge.storage.files import ArtifactStore
-from jd_knowledge.storage.sqlite import SQLiteStore
-from jd_knowledge.webui.integration import WebUiFeature
-from jd_knowledge.webui.security import WEBUI_LOCK_COOKIE_NAME, verify_webui_lock_session
+from medrag_nexus.core.models import WorkspaceRecord
+from medrag_nexus.storage.files import ArtifactStore
+from medrag_nexus.storage.sqlite import SQLiteStore
+from medrag_nexus.webui.integration import WebUiFeature
+from medrag_nexus.webui.security import WEBUI_LOCK_COOKIE_NAME, verify_webui_lock_session
 
 
 def _lock_cookie(password: str, *, expires_at: int, nonce: str = "fixed-nonce") -> str:
     payload = f"v1.{expires_at}.{nonce}"
     signing_key = hmac.new(
         password.encode(),
-        b"jd-knowledge:webui-session:v1",
+        b"medrag-nexus:webui-session:v1",
         hashlib.sha256,
     ).digest()
     signature = hmac.new(signing_key, payload.encode(), hashlib.sha256).digest()

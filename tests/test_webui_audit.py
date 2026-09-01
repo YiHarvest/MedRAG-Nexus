@@ -6,14 +6,14 @@ import json
 import sqlite3
 from datetime import date, timedelta
 
-from jd_knowledge.core.config import Settings
-from jd_knowledge.webui.audit import (
+from medrag_nexus.core.config import Settings
+from medrag_nexus.webui.audit import (
     WebUiAuditLogExporter,
     reset_audit_request_id,
     set_audit_request_id,
 )
-from jd_knowledge.webui.permissions import build_default_registry
-from jd_knowledge.webui.store import WebUiStore
+from medrag_nexus.webui.permissions import build_default_registry
+from medrag_nexus.webui.store import WebUiStore
 
 
 def test_webui_runtime_settings_isolate_all_storage_names(tmp_path) -> None:

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-const WEBUI_LOCK_PURPOSE = "jd-knowledge:webui-session:v1";
+const WEBUI_LOCK_PURPOSE = "medrag-nexus:webui-session:v1";
 
-export const WEBUI_LOCK_COOKIE_NAME = "jd_knowledge_webui_session_v2";
+export const WEBUI_LOCK_COOKIE_NAME = "medrag_nexus_webui_session_v2";
 export const WEBUI_LOCK_SESSION_SECONDS = 12 * 60 * 60;
 
 type WebUiLockEnvironment = Record<string, string | undefined>;

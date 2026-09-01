@@ -1,6 +1,6 @@
-# JD Knowledge Console
+# MedRAG-Nexus Console
 
-JD Knowledge 的 Next.js Web 控制台，使用官方 Carbon Design System。页面直接调用 FastAPI 的真实接口，不包含演示数据。
+MedRAG-Nexus 的 Next.js Web 控制台，使用官方 Carbon Design System。页面直接调用 FastAPI 的真实接口，不包含演示数据。
 
 ## 功能
 
@@ -43,7 +43,7 @@ npm run start
 生产部署时在前端进程环境中设置：
 
 ```dotenv
-API_BASE_URL=http://jd-knowledge-api:28111
+API_BASE_URL=http://medrag-nexus-api:28111
 ```
 
 `API_BASE_URL` 只在 Next.js 服务端代理中使用，不会作为公开浏览器环境变量暴露。

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from jd_knowledge.pipeline.markdown import chunk_markdown, estimate_tokens, normalize_markdown
+from medrag_nexus.pipeline.markdown import chunk_markdown, estimate_tokens, normalize_markdown
 
 
 def test_normalize_markdown_keeps_structure_and_removes_noise() -> None:

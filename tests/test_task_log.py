@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import logging
 
-from jd_knowledge.services.task_log import TaskLogStore
+from medrag_nexus.services.task_log import TaskLogStore
 
 
 async def test_log_store_writes_same_structured_event_to_file_and_terminal(tmp_path, caplog, monkeypatch) -> None:
     async def inline_to_thread(operation, *args, **kwargs):
         return operation(*args, **kwargs)
 
-    monkeypatch.setattr("jd_knowledge.services.task_log.asyncio.to_thread", inline_to_thread)
+    monkeypatch.setattr("medrag_nexus.services.task_log.asyncio.to_thread", inline_to_thread)
     store = TaskLogStore(tmp_path)
     await store.ensure()
     caplog.set_level(logging.INFO, logger="uvicorn.error")

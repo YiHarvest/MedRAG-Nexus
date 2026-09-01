@@ -5,10 +5,10 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 
-from jd_knowledge.core.ids import file_id, new_task_id
-from jd_knowledge.core.models import DeleteFileRequest, TaskRecord, TaskStatus, WorkspaceRecord
-from jd_knowledge.services.files import FileService
-from jd_knowledge.services.processing import process_delete
+from medrag_nexus.core.ids import file_id, new_task_id
+from medrag_nexus.core.models import DeleteFileRequest, TaskRecord, TaskStatus, WorkspaceRecord
+from medrag_nexus.services.files import FileService
+from medrag_nexus.services.processing import process_delete
 
 
 class CapturingTaskLog:

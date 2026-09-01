@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from jd_knowledge.storage.milvus import MilvusStore
+from medrag_nexus.storage.milvus import MilvusStore
 
 
 class FakeMilvusClient:

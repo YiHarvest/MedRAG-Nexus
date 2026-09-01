@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 停止 JD Knowledge：Next.js WebUI + API/MCP/Worker + Redis。
+# 停止 MedRAG-Nexus：Next.js WebUI + API/MCP/Worker + Redis。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."

@@ -5,11 +5,11 @@ import { ShellBoundary } from "@/components/shell-boundary";
 
 export const metadata: Metadata = {
   title: {
-    default: "JD Knowledge",
-    template: "%s | JD Knowledge",
+    default: "MedRAG-Nexus",
+    template: "%s | MedRAG-Nexus",
   },
   description: "知识文档入库、检索与任务运维控制台",
-  applicationName: "JD Knowledge",
+  applicationName: "MedRAG-Nexus",
 };
 
 export default function RootLayout({
@@ -22,7 +22,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const mode = localStorage.getItem('jd-knowledge-theme') || 'system'; const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'g100' : 'white'; } catch {} })()`,
+            __html: `(() => { try { const mode = localStorage.getItem('medrag-nexus-theme') || 'system'; const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.dataset.theme = dark ? 'g100' : 'white'; } catch {} })()`,
           }}
         />
       </head>

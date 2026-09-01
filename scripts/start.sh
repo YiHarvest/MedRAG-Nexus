@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 一键启动 JD Knowledge：Redis + API/MCP/Worker + Next.js WebUI。
+# 一键启动 MedRAG-Nexus：Redis + API/MCP/Worker + Next.js WebUI。
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -370,7 +370,7 @@ else
 fi
 
 echo
-c_ok "JD Knowledge 全部服务已就绪。 [mode=$APP_MODE]"
+c_ok "MedRAG-Nexus 全部服务已就绪。 [mode=$APP_MODE]"
 echo "  WebUI:  $WEBUI_URL"
 echo "  API:    $API_ORIGIN"
 echo "  Swagger: ${API_ORIGIN%/}/docs"

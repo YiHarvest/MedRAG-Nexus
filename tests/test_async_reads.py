@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from jd_knowledge.core.ids import new_task_id
-from jd_knowledge.core.models import TaskRecord, TaskStatus, WorkspaceListResponse
-from jd_knowledge.services.processing import process_task
+from medrag_nexus.core.ids import new_task_id
+from medrag_nexus.core.models import TaskRecord, TaskStatus, WorkspaceListResponse
+from medrag_nexus.services.processing import process_task
 
 
 class CapturingTaskLog:

@@ -6,8 +6,8 @@ import asyncio
 import time
 from types import SimpleNamespace
 
-from jd_knowledge.services import runtime as runtime_module
-from jd_knowledge.services.runtime import Runtime
+from medrag_nexus.services import runtime as runtime_module
+from medrag_nexus.services.runtime import Runtime
 
 
 class CapturingTaskLog:
@@ -47,7 +47,7 @@ async def test_worker_retries_dequeue_and_logs_redis_recovery(monkeypatch) -> No
         processed.append(selected_task_id)
         runtime._stopping.set()
 
-    monkeypatch.setattr("jd_knowledge.services.processing.process_task", fake_process_task)
+    monkeypatch.setattr("medrag_nexus.services.processing.process_task", fake_process_task)
     monkeypatch.setattr(runtime_module, "_WORKER_RETRY_BASE_SECONDS", 0.0)
     monkeypatch.setattr(runtime_module, "_WORKER_RETRY_MAX_SECONDS", 0.0)
 

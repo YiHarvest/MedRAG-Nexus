@@ -6,12 +6,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from jd_knowledge.webui.agent.context import AgentAuthorizationError, AgentContext
-from jd_knowledge.webui.agent.registry import AgentToolRegistry, ToolSpec, object_schema
-from jd_knowledge.webui.agent.tools import build_default_agent_tool_registry
-from jd_knowledge.webui.agent.tools import read as read_tools
-from jd_knowledge.webui.agent.tools.read import get_file_details, list_files, prepare_file_download
-from jd_knowledge.webui.router import WebUiPrincipal
+from medrag_nexus.webui.agent.context import AgentAuthorizationError, AgentContext
+from medrag_nexus.webui.agent.registry import AgentToolRegistry, ToolSpec, object_schema
+from medrag_nexus.webui.agent.tools import build_default_agent_tool_registry
+from medrag_nexus.webui.agent.tools import read as read_tools
+from medrag_nexus.webui.agent.tools.read import get_file_details, list_files, prepare_file_download
+from medrag_nexus.webui.router import WebUiPrincipal
 
 
 def principal(*permissions: str, level: int = 0, enabled: bool = True) -> WebUiPrincipal:

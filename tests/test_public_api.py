@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import pytest
 
-from jd_knowledge import __version__
-from jd_knowledge.api import create_app
-from jd_knowledge.core import AddRequest, Settings
-from jd_knowledge.mcp import mcp
-from jd_knowledge.pipeline import parse_file
-from jd_knowledge.services import FileService, Runtime
-from jd_knowledge.storage import ArtifactStore, SQLiteStore
+from medrag_nexus import __version__
+from medrag_nexus.api import create_app
+from medrag_nexus.core import AddRequest, Settings
+from medrag_nexus.mcp import mcp
+from medrag_nexus.pipeline import parse_file
+from medrag_nexus.services import FileService, Runtime
+from medrag_nexus.storage import ArtifactStore, SQLiteStore
 
 
 def test_package_initializers_export_public_api() -> None:
