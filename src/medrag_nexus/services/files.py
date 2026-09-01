@@ -503,7 +503,7 @@ class FileService:
         return await self.runtime.metadata.list_users()
 
     async def create_user(self, request: UserCreateRequest) -> UserListItem:
-        """保存前端生成 ID 的空用户。"""
+        """保存调用方提供 ID 的空用户（供 MCP 等受信任集成使用）。"""
 
         created = await self.runtime.metadata.create_user(request.user_id, request.user_name)
         if created is None:

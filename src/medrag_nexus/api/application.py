@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from types import ModuleType
 
 from fastapi import FastAPI
 
@@ -13,20 +12,17 @@ from medrag_nexus.mcp import bind_runtime, mcp_http_app
 from medrag_nexus.services.runtime import Runtime
 from medrag_nexus.webui import WebUiFeature
 
-from . import services as default_services
 from .contracts import OPENAPI_TAGS
 from .docs import install_documentation_routes
+from .health import create_health_router
 from .http import install_http_infrastructure
-from .routes import create_public_router
 
 _DESCRIPTION = """
-所有业务接口使用 `/api/v1` 前缀。当前版本不包含鉴权。
+所有 REST 业务接口使用 `/api/v1` 前缀，并由后端账号 Session、权限与资源 ACL 保护。
 
-- `user_id`、`workspace_id`、`workspace_name` 均由前端提供；服务不会自动生成 Workspace ID。
-- 文件首次创建时生成永久 `file_<UUID4>`；仅支持 PDF、TXT、DOCX。
-- `type=str` 的原始字符串追加到 workspace JSONL，并按规范化内容 SHA-256 去重。
-- 新增与删除异步执行，使用任务接口轮询，或传入 callback_url 接收状态、进度与结果。
-- Workspace 列表、资源列表与检索同步执行并直接返回结果。
+- 账号、知识域与 Workspace 均通过后端接口创建并持久化。
+- 文件与字符串写入、删除采用异步任务；检索和列表同步返回。
+- `/api/v1/health/*` 是唯一无需业务 Session 的基础设施探针。
 """
 
 
@@ -34,7 +30,6 @@ def create_app(
     runtime: Runtime | None = None,
     *,
     webui_runtime: Runtime | None = None,
-    services: ModuleType = default_services,
 ) -> FastAPI:
     settings = get_settings()
     selected_runtime = runtime or Runtime(settings)
@@ -76,7 +71,7 @@ def create_app(
     webui.install(app)
     install_http_infrastructure(app, max_file_bytes=settings.max_file_bytes)
     install_documentation_routes(app)
-    app.include_router(create_public_router(max_file_bytes=settings.max_file_bytes, services=services))
+    app.include_router(create_health_router())
     app.mount("/", mcp_http_app)
     return app
 

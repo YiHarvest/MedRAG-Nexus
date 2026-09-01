@@ -33,9 +33,9 @@ class Settings(BaseSettings):
     app_host: str = "0.0.0.0"  # 应用监听地址
     app_port: int = 28111  # 应用监听端口
     app_log_level: str = "info"  # 日志级别
-    data_root: Path = Path("./data")  # 公开 API/MCP 数据存储根目录
+    data_root: Path = Path("./data")  # MCP 数据存储根目录
 
-    # ========== 自有 WebUI 账号（不影响公开 API/MCP） ==========
+    # ========== Backend API 账号（不影响 MCP 集成） ==========
     webui_superadmin_username: str = ""
     webui_superadmin_password: str = ""
     webui_superadmin_display_name: str = "超级管理员"
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     webui_trust_proxy_headers: bool = False
     webui_trusted_proxy_hops: int = 1
 
-    # WebUI 的知识数据与公开 API/MCP 完全隔离。连接地址留空时复用同一服务端，
+    # Backend API 的知识数据与 MCP 完全隔离。连接地址留空时复用同一服务端，
     # 但 SQLite 文件、ES 索引、Milvus 集合、Redis 队列和文件目录始终独立。
     webui_data_root: Path = Path("./data/webui")
     webui_sqlite_path: Path = Path("./data/webui/MedRAG-Nexus-dev-webui.sqlite3")
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     milvus_host: str = "localhost"  # Milvus 服务地址
     milvus_port: int = 19530  # Milvus 服务端口
     milvus_token: str = ""  # Milvus 认证令牌
-    milvus_collection: str = "medrag_nexus_dev_chunks"  # 公开 API/MCP Milvus 集合
+    milvus_collection: str = "medrag_nexus_dev_chunks"  # MCP Milvus 集合
 
     # ========== Elasticsearch 搜索引擎配置 ==========
     elasticsearch_url: str = "http://localhost:9200"  # Elasticsearch 服务地址
@@ -297,7 +297,7 @@ class Settings(BaseSettings):
             self.webui_elasticsearch_chunk_index,
         }
         if public_indices.intersection(webui_indices):
-            raise ValueError("WebUI Elasticsearch indices must differ from public API/MCP indices")
+            raise ValueError("Backend Elasticsearch indices must differ from MCP indices")
         return self
 
     def webui_runtime_settings(self) -> Settings:

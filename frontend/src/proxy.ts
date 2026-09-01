@@ -61,7 +61,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/backend/api/webui/:path*",
+    "/backend/api/v1/:path*",
     "/((?!api(?:/|$)|backend(?:/|$)|mcp(?:/|$)|_next(?:/|$)|favicon\\.ico$|icon\\.svg$).*)",
   ],
 };

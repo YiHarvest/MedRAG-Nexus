@@ -57,12 +57,12 @@ async def test_outer_lock_protects_only_webui_bff_routes(tmp_path) -> None:
 
     token = _lock_cookie("outer-secret", expires_at=2_000_000_000)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        direct = await client.get("/api/webui/v1/auth/me")
+        direct = await client.get("/api/v1/auth/me")
         assert direct.status_code == 401
         assert direct.json()["detail"]["code"] == "outer_lock_required"
 
         client.cookies.set(WEBUI_LOCK_COOKIE_NAME, token)
-        through_lock = await client.get("/api/webui/v1/auth/me")
+        through_lock = await client.get("/api/v1/auth/me")
         assert through_lock.status_code == 401
         assert through_lock.json()["detail"]["code"] == "authentication_required"
 

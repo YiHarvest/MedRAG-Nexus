@@ -48,8 +48,14 @@ export function readWebUiTrustedProxyConfig(
 export function isProtectedWebUiPath(pathname: string) {
   const normalized = normalizePathname(pathname);
   if (
-    normalized === "/backend/api/webui" ||
-    normalized.startsWith("/backend/api/webui/")
+    normalized === "/backend/api/v1/health" ||
+    normalized.startsWith("/backend/api/v1/health/")
+  ) {
+    return false;
+  }
+  if (
+    normalized === "/backend/api/v1" ||
+    normalized.startsWith("/backend/api/v1/")
   ) {
     return true;
   }

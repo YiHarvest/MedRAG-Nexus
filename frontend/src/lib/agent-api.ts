@@ -1,6 +1,6 @@
 import type { AgentActionResponse } from "@/lib/agent-types";
 
-const AGENT_API_ROOT = "/backend/api/webui/v1/agent";
+const AGENT_API_ROOT = "/backend/api/v1/agent";
 
 interface ErrorEnvelope {
   detail?: string | { code?: string; message?: string };

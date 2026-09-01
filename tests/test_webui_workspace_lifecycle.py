@@ -181,9 +181,9 @@ async def test_rename_then_delete_removes_all_business_data_but_keeps_tombstone(
     app.include_router(create_knowledge_router(runtime, accounts, policies))
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("jd_webui_session", token)
+        client.cookies.set("medrag_nexus_account_session", token)
         renamed = await client.patch(
-            f"/api/webui/v1/workspaces/{workspace.workspace_id}",
+            f"/api/v1/workspaces/{workspace.workspace_id}",
             json={"workspace_name": "新知识库名称"},
         )
         assert renamed.status_code == 200, renamed.text
@@ -197,7 +197,7 @@ async def test_rename_then_delete_removes_all_business_data_but_keeps_tombstone(
         assert {item["workspace_name"] for item in elasticsearch.chunks.values()} == {"新知识库名称"}
 
         deleted = await client.delete(
-            f"/api/webui/v1/workspaces/{workspace.workspace_id}",
+            f"/api/v1/workspaces/{workspace.workspace_id}",
             params={"confirm_name": "新知识库名称"},
         )
         assert deleted.status_code == 200, deleted.text

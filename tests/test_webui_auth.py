@@ -38,7 +38,7 @@ async def test_registration_only_creates_unbound_account_and_hashed_session(tmp_
     app = _app(store)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post(
-            "/api/webui/v1/auth/register",
+            "/api/v1/auth/register",
             json={"login_name": "alice", "display_name": "Alice", "password": "AliceSecure!123"},
         )
         assert response.status_code == 201
@@ -54,11 +54,11 @@ async def test_registration_only_creates_unbound_account_and_hashed_session(tmp_
         assert "HttpOnly" in cookie
         assert "SameSite=lax" in cookie
 
-        me = await client.get("/api/webui/v1/auth/me")
+        me = await client.get("/api/v1/auth/me")
         assert me.status_code == 200
         assert me.json()["account"]["login_name"] == "alice"
         assert me.json()["permissions"] == body["permissions"]
-        assert (await client.get("/api/webui/v1/permission-catalog")).status_code == 200
+        assert (await client.get("/api/v1/permission-catalog")).status_code == 200
 
     with sqlite3.connect(path) as db:
         password_hash = db.execute("SELECT password_hash FROM webui_accounts").fetchone()[0]
@@ -67,7 +67,7 @@ async def test_registration_only_creates_unbound_account_and_hashed_session(tmp_
     assert password_hash.startswith("$argon2id$")
     assert "AliceSecure!123" not in password_hash
     assert len(session_hash) == 64
-    assert "jd_webui_session=" not in session_hash
+    assert "medrag_nexus_account_session=" not in session_hash
     assert knowledge_user_count == 0
 
 
@@ -75,10 +75,10 @@ async def test_registered_user_cannot_access_admin_accounts(tmp_path: Path) -> N
     store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         await client.post(
-            "/api/webui/v1/auth/register",
+            "/api/v1/auth/register",
             json={"login_name": "reader", "display_name": "Reader", "password": "ReaderSecure!123"},
         )
-        response = await client.get("/api/webui/v1/accounts")
+        response = await client.get("/api/v1/accounts")
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "permission_denied"
 
@@ -87,11 +87,11 @@ async def test_webui_password_accepts_three_characters_and_rejects_two(tmp_path:
     store = WebUiStore(tmp_path / "metadata.sqlite3", build_default_registry())
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         accepted = await client.post(
-            "/api/webui/v1/auth/register",
+            "/api/v1/auth/register",
             json={"login_name": "mini", "display_name": "短密码用户", "password": "a3!"},
         )
         rejected = await client.post(
-            "/api/webui/v1/auth/register",
+            "/api/v1/auth/register",
             json={"login_name": "tiny", "display_name": "过短密码用户", "password": "a!"},
         )
     assert accepted.status_code == 201
@@ -103,13 +103,13 @@ async def test_superadmin_can_create_peer_and_all_superadmins_are_immutable(tmp_
     await _bootstrap_admin(store)
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         login = await client.post(
-            "/api/webui/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"}
+            "/api/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"}
         )
         assert login.status_code == 200
         assert "webui.account.create_superadmin" in login.json()["permissions"]
 
         created = await client.post(
-            "/api/webui/v1/accounts",
+            "/api/v1/accounts",
             json={
                 "login_name": "root2",
                 "display_name": "Second Root",
@@ -123,19 +123,19 @@ async def test_superadmin_can_create_peer_and_all_superadmins_are_immutable(tmp_
         assert created.json()["capabilities"]["protected"] is True
         assert "webui.workspace.delete" in created.json()["permissions"]
         second_id = created.json()["account_id"]
-        disabled = await client.patch(f"/api/webui/v1/accounts/{second_id}", json={"enabled": False})
+        disabled = await client.patch(f"/api/v1/accounts/{second_id}", json={"enabled": False})
         assert disabled.status_code == 409
         assert disabled.json()["detail"]["code"] == "superadmin_immutable"
 
         root_id = login.json()["account"]["account_id"]
-        rejected = await client.patch(f"/api/webui/v1/accounts/{root_id}", json={"enabled": False})
+        rejected = await client.patch(f"/api/v1/accounts/{root_id}", json={"enabled": False})
         assert rejected.status_code == 409
         assert rejected.json()["detail"]["code"] == "superadmin_immutable"
         reset = await client.post(
-            f"/api/webui/v1/accounts/{second_id}/password/reset",
+            f"/api/v1/accounts/{second_id}/password/reset",
             json={"new_password": "NoResetAllowed!123"},
         )
-        revoke = await client.post(f"/api/webui/v1/accounts/{second_id}/sessions/revoke")
+        revoke = await client.post(f"/api/v1/accounts/{second_id}/sessions/revoke")
         assert reset.status_code == 409
         assert revoke.status_code == 404
 
@@ -145,21 +145,21 @@ async def test_password_change_revokes_old_session_and_new_password_logs_in(tmp_
     app = _app(store)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         await client.post(
-            "/api/webui/v1/auth/register",
+            "/api/v1/auth/register",
             json={"login_name": "change", "display_name": "Change", "password": "OriginalSecure!123"},
         )
         changed = await client.post(
-            "/api/webui/v1/account/password",
+            "/api/v1/account/password",
             json={"current_password": "OriginalSecure!123", "new_password": "Replacement!456"},
         )
         assert changed.status_code == 200
-        assert (await client.get("/api/webui/v1/auth/me")).status_code == 401
+        assert (await client.get("/api/v1/auth/me")).status_code == 401
         old_login = await client.post(
-            "/api/webui/v1/auth/login", json={"login_name": "change", "password": "OriginalSecure!123"}
+            "/api/v1/auth/login", json={"login_name": "change", "password": "OriginalSecure!123"}
         )
         assert old_login.status_code == 401
         new_login = await client.post(
-            "/api/webui/v1/auth/login", json={"login_name": "change", "password": "Replacement!456"}
+            "/api/v1/auth/login", json={"login_name": "change", "password": "Replacement!456"}
         )
         assert new_login.status_code == 200
 
@@ -170,18 +170,18 @@ async def test_login_lock_cannot_be_cleared_by_another_failed_attempt(tmp_path: 
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         for _ in range(5):
             response = await client.post(
-                "/api/webui/v1/auth/login",
+                "/api/v1/auth/login",
                 json={"login_name": "root", "password": "wrong-password"},
             )
             assert response.status_code == 401
 
         locked = await client.post(
-            "/api/webui/v1/auth/login",
+            "/api/v1/auth/login",
             json={"login_name": "root", "password": "SuperSecure!123"},
         )
         assert locked.status_code == 423
         still_locked = await client.post(
-            "/api/webui/v1/auth/login",
+            "/api/v1/auth/login",
             json={"login_name": "root", "password": "wrong-password"},
         )
         assert still_locked.status_code == 423
@@ -199,7 +199,7 @@ async def test_concurrent_failed_logins_atomically_reach_locked_state(tmp_path: 
         responses = await asyncio.gather(
             *(
                 client.post(
-                    "/api/webui/v1/auth/login",
+                    "/api/v1/auth/login",
                     json={"login_name": "root", "password": "wrong-password"},
                 )
                 for _ in range(20)
@@ -208,7 +208,7 @@ async def test_concurrent_failed_logins_atomically_reach_locked_state(tmp_path: 
         assert {response.status_code for response in responses} <= {401, 423}
         assert any(response.status_code == 401 for response in responses)
         locked = await client.post(
-            "/api/webui/v1/auth/login",
+            "/api/v1/auth/login",
             json={"login_name": "root", "password": "SuperSecure!123"},
         )
         assert locked.status_code == 423
@@ -225,12 +225,12 @@ async def test_only_registered_levels_can_be_assigned(tmp_path: Path) -> None:
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         assert (
             await client.post(
-                "/api/webui/v1/auth/login",
+                "/api/v1/auth/login",
                 json={"login_name": "root", "password": "SuperSecure!123"},
             )
         ).status_code == 200
         created = await client.post(
-            "/api/webui/v1/accounts",
+            "/api/v1/accounts",
             json={
                 "login_name": "invalidlevel",
                 "display_name": "Invalid Level",
@@ -326,22 +326,22 @@ async def test_superadmin_resets_password_and_reads_audit_events(tmp_path: Path)
     )
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         await client.post(
-            "/api/webui/v1/auth/login",
+            "/api/v1/auth/login",
             json={"login_name": "root", "password": "SuperSecure!123"},
         )
         reset = await client.post(
-            f"/api/webui/v1/accounts/{target.account_id}/password/reset",
+            f"/api/v1/accounts/{target.account_id}/password/reset",
             json={"new_password": "ReplacementSecure!456", "must_change_password": False},
         )
         assert reset.status_code == 200
-        audit = await client.get("/api/webui/v1/audit-events")
+        audit = await client.get("/api/v1/audit-events")
         assert audit.status_code == 200
         actions = {event["action"] for event in audit.json()["events"]}
         assert "webui.account.password.reset" in actions
 
-        await client.post("/api/webui/v1/auth/logout")
+        await client.post("/api/v1/auth/logout")
         new_login = await client.post(
-            "/api/webui/v1/auth/login",
+            "/api/v1/auth/login",
             json={"login_name": "resetme", "password": "ReplacementSecure!456"},
         )
         assert new_login.status_code == 200
@@ -453,9 +453,9 @@ async def test_dynamic_permission_group_crud_and_multi_group_union(tmp_path: Pat
     await _bootstrap_admin(store)
     async with AsyncClient(transport=ASGITransport(app=_app(store)), base_url="http://test") as client:
         await client.post(
-            "/api/webui/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"}
+            "/api/v1/auth/login", json={"login_name": "root", "password": "SuperSecure!123"}
         )
-        catalog = await client.get("/api/webui/v1/permission-catalog")
+        catalog = await client.get("/api/v1/permission-catalog")
         assert catalog.status_code == 200
         assert [item["value"] for item in catalog.json()["levels"]] == [0, 1, 2, 1000]
         assert catalog.json()["groups"] == []
@@ -466,7 +466,7 @@ async def test_dynamic_permission_group_crud_and_multi_group_union(tmp_path: Pat
         }
 
         created_group = await client.post(
-            "/api/webui/v1/permission-groups",
+            "/api/v1/permission-groups",
             json={
                 "group_key": "webui.custom.domain_creator",
                 "name": "知识域创建者",
@@ -478,7 +478,7 @@ async def test_dynamic_permission_group_crud_and_multi_group_union(tmp_path: Pat
         assert created_group.json()["name"] == "知识域创建者"
         assert created_group.json()["description"] == ""
         second_group = await client.post(
-            "/api/webui/v1/permission-groups",
+            "/api/v1/permission-groups",
             json={
                 "group_key": "webui.custom.policy_reader",
                 "name": "审计查看组",
@@ -488,7 +488,7 @@ async def test_dynamic_permission_group_crud_and_multi_group_union(tmp_path: Pat
         )
         assert second_group.status_code == 201
         account = await client.post(
-            "/api/webui/v1/accounts",
+            "/api/v1/accounts",
             json={
                 "login_name": "combined",
                 "display_name": "Combined",
@@ -506,21 +506,21 @@ async def test_dynamic_permission_group_crud_and_multi_group_union(tmp_path: Pat
         } <= await store.permission_keys(account_id)
 
         patched = await client.patch(
-            "/api/webui/v1/permission-groups/webui.custom.domain_creator",
+            "/api/v1/permission-groups/webui.custom.domain_creator",
             json={"name": "知识域策略员", "permissions": ["webui.user.policy.manage"]},
         )
         assert patched.status_code == 200
         assert patched.json()["name"] == "知识域策略员"
         assert patched.json()["permissions"] == ["webui.user.policy.manage"]
-        delete_assigned = await client.delete("/api/webui/v1/permission-groups/webui.custom.domain_creator")
+        delete_assigned = await client.delete("/api/v1/permission-groups/webui.custom.domain_creator")
         assert delete_assigned.status_code == 409
 
         await client.post(
-            "/api/webui/v1/auth/login",
+            "/api/v1/auth/login",
             json={"login_name": "combined", "password": "Combined!123"},
         )
         left = await client.delete(
-            "/api/webui/v1/account/permission-groups/webui.custom.policy_reader"
+            "/api/v1/account/permission-groups/webui.custom.policy_reader"
         )
         assert left.status_code == 200, left.text
         assert left.json()["groups"] == ["webui.custom.domain_creator"]

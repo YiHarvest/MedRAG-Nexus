@@ -20,40 +20,11 @@ def install_documentation_routes(app: FastAPI) -> None:
 
     @app.get("/docs", include_in_schema=False)
     async def swagger_ui() -> HTMLResponse:
-        document = get_swagger_ui_html(
+        return get_swagger_ui_html(
             openapi_url=app.openapi_url,
             title=f"{app.title} - Swagger UI",
             swagger_ui_parameters=app.swagger_ui_parameters,
         )
-        html = (
-            document.body.decode("utf-8")
-            .replace(
-                "<!-- `SwaggerUIBundle` is now available on the page -->",
-                """<script>
-    const HideEmptyValuePlugin = () => ({
-        components: { ParameterIncludeEmpty: () => null },
-    })
-    const SanitizeAddRequest = (request) => {
-        if (!request.url.includes("/api/v1/add") || !(request.body instanceof FormData)) {
-            return request
-        }
-        const sourceType = request.body.get("type")
-        if (sourceType === "file") request.body.delete("content")
-        if (sourceType === "str") request.body.delete("file")
-        return request
-    }
-    </script>
-    <!-- `SwaggerUIBundle` is now available on the page -->""",
-            )
-            .replace(
-                "    presets: [",
-                """    plugins: [HideEmptyValuePlugin],
-    requestInterceptor: SanitizeAddRequest,
-    showMutatedRequest: true,
-    presets: [""",
-            )
-        )
-        return HTMLResponse(html)
 
 
 __all__ = ["install_documentation_routes"]

@@ -314,12 +314,12 @@ rect.c-bg-rect { fill: var(--bg); }
 
         <!-- Connection paths (before components for correct z-order) -->
         <path data-edge-from="browser" data-edge-to="nextjs" data-edge-label="HTTPS" data-edge-key="0" data-edge-id="browserToNext" data-composition-points="200,216;270,216" d="M 200 216 L 270 216" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="nextjs" data-edge-to="fastapi" data-edge-label="/webui/* BFF" data-edge-key="1" data-edge-id="nextToApi" data-composition-points="430,216;460,216;460,331;490,331" d="M 430 216 L 452 216 Q 460 216 460 224 L 460 323 Q 460 331 468 331 L 490 331" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="nextjs" data-edge-to="fastapi" data-edge-label="/backend/api/v1 proxy" data-edge-key="1" data-edge-id="nextToApi" data-composition-points="430,216;460,216;460,331;490,331" d="M 430 216 L 452 216 Q 460 216 460 224 L 460 323 Q 460 331 468 331 L 490 331" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
         <path data-edge-from="clients" data-edge-to="fastapi" data-edge-label="/api/v1 + /mcp" data-edge-key="2" data-edge-id="clientsToApi" data-composition-points="200,466;345,466;345,345;490,345" d="M 200 466 L 337 466 Q 345 466 345 458 L 345 353 Q 345 345 353 345 L 490 345" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="fastapi" data-edge-to="publicRuntime" data-edge-label="公开请求" data-edge-key="3" data-edge-id="apiToPublic" data-composition-points="670,331;710,331;710,191;750,191" d="M 670 331 L 702 331 Q 710 331 710 323 L 710 199 Q 710 191 718 191 L 750 191" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="fastapi" data-edge-to="webuiRuntime" data-edge-label="Session + capability" data-edge-key="4" data-edge-id="apiToWebui" data-composition-points="670,345;710,345;710,451;750,451" d="M 670 345 L 702 345 Q 710 345 710 353 L 710 443 Q 710 451 718 451 L 750 451" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="publicRuntime" data-edge-to="stores" data-edge-label="public namespaces" data-edge-key="5" data-edge-id="publicToStores" data-composition-points="940,191;985,191;985,323;1030,323" d="M 940 191 L 977 191 Q 985 191 985 199 L 985 315 Q 985 323 993 323 L 1030 323" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="webuiRuntime" data-edge-to="stores" data-edge-label="webui namespaces" data-edge-key="6" data-edge-id="webuiToStores" data-composition-points="940,451;985,451;985,337;1030,337" d="M 940 451 L 977 451 Q 985 451 985 443 L 985 345 Q 985 337 993 337 L 1030 337" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="fastapi" data-edge-to="publicRuntime" data-edge-label="MCP 请求" data-edge-key="3" data-edge-id="apiToPublic" data-composition-points="670,331;710,331;710,191;750,191" d="M 670 331 L 702 331 Q 710 331 710 323 L 710 199 Q 710 191 718 191 L 750 191" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="fastapi" data-edge-to="webuiRuntime" data-edge-label="Session + ACL" data-edge-key="4" data-edge-id="apiToWebui" data-composition-points="670,345;710,345;710,451;750,451" d="M 670 345 L 702 345 Q 710 345 710 353 L 710 443 Q 710 451 718 451 L 750 451" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
+        <path data-edge-from="publicRuntime" data-edge-to="stores" data-edge-label="mcp namespaces" data-edge-key="5" data-edge-id="publicToStores" data-composition-points="940,191;985,191;985,323;1030,323" d="M 940 191 L 977 191 Q 985 191 985 199 L 985 315 Q 985 323 993 323 L 1030 323" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="webuiRuntime" data-edge-to="stores" data-edge-label="backend namespaces" data-edge-key="6" data-edge-id="webuiToStores" data-composition-points="940,451;985,451;985,337;1030,337" d="M 940 451 L 977 451 Q 985 451 985 443 L 985 345 Q 985 337 993 337 L 1030 337" class="a-security" stroke-width="1.5" marker-end="url(#arrowhead-security)"/>
 
         <!-- Components -->
         <g id="node-browser" data-node-id="browser" data-node-label="浏览器用户" tabindex="0" role="button" aria-label="聚焦浏览器用户，账号 / Session / 权限界面, 架构组件" aria-pressed="false" data-node-kind="external" data-node-sublabel="账号 / Session / 权限界面" data-node-context="架构组件">
@@ -334,8 +334,8 @@ rect.c-bg-rect { fill: var(--bg); }
         <text x="120" y="230" class="t-muted" font-size="9" text-anchor="middle">账号 / Session / 权限界面</text>
         </g>
 
-        <g id="node-clients" data-node-id="clients" data-node-label="AgentHub / API 客户端" tabindex="0" role="button" aria-label="聚焦AgentHub / API 客户端，公开调用方, 架构组件" aria-pressed="false" data-node-kind="external" data-node-sublabel="公开调用方" data-node-context="架构组件">
-          <title>AgentHub / API 客户端 · 公开调用方 · 架构组件</title>
+        <g id="node-clients" data-node-id="clients" data-node-label="AgentHub / API 客户端" tabindex="0" role="button" aria-label="聚焦AgentHub / API 客户端，MCP / 认证 API, 架构组件" aria-pressed="false" data-node-kind="external" data-node-sublabel="MCP / 认证 API" data-node-context="架构组件">
+          <title>AgentHub / API 客户端 · MCP / 认证 API · 架构组件</title>
           <rect x="40" y="430" width="160" height="72" rx="6" class="c-mask"/>
           <rect x="40" y="430" width="160" height="72" rx="6" class="c-external" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(46 436) scale(0.6875)">
@@ -343,7 +343,7 @@ rect.c-bg-rect { fill: var(--bg); }
             <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
           </g>
           <text data-node-label="" x="120" y="464" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">AgentHub / API 客户端</text>
-        <text x="120" y="480" class="t-muted" font-size="9" text-anchor="middle">公开调用方</text>
+        <text x="120" y="480" class="t-muted" font-size="9" text-anchor="middle">MCP / 认证 API</text>
         </g>
 
         <g id="node-nextjs" data-node-id="nextjs" data-node-label="Next.js WebUI" tabindex="0" role="button" aria-label="聚焦Next.js WebUI，Carbon UI · :22134, 架构组件" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="Carbon UI · :22134" data-node-context="架构组件">
@@ -371,28 +371,28 @@ rect.c-bg-rect { fill: var(--bg); }
         <text x="580" y="352" class="t-muted" font-size="9" text-anchor="middle">HTTP + FastMCP · :28111</text>
         </g>
 
-        <g id="node-publicRuntime" data-node-id="publicRuntime" data-node-label="Public Runtime" tabindex="0" role="button" aria-label="聚焦Public Runtime，API / MCP / Worker / Maintenance, MedRAG-Nexus application process" aria-pressed="false" data-node-kind="backend" data-node-sublabel="API / MCP / Worker / Maintenance" data-node-tag="无鉴权兼容面" data-node-context="MedRAG-Nexus application process">
-          <title>Public Runtime · API / MCP / Worker / Maintenance · MedRAG-Nexus application process · 无鉴权兼容面</title>
+        <g id="node-publicRuntime" data-node-id="publicRuntime" data-node-label="MCP Runtime" tabindex="0" role="button" aria-label="聚焦MCP Runtime，MCP / Worker / Maintenance, MedRAG-Nexus application process" aria-pressed="false" data-node-kind="backend" data-node-sublabel="MCP / Worker / Maintenance" data-node-tag="受信任集成" data-node-context="MedRAG-Nexus application process">
+          <title>MCP Runtime · MCP / Worker / Maintenance · MedRAG-Nexus application process · 受信任集成</title>
           <rect x="750" y="150" width="190" height="82" rx="6" class="c-mask"/>
           <rect x="750" y="150" width="190" height="82" rx="6" class="c-backend" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(756 156) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" x="845" y="189" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Public Runtime</text>
-        <text x="845" y="205" class="t-muted" font-size="9" text-anchor="middle">API / MCP / Worker / Maintenance</text>
-        <text x="845" y="224" class="t-backend" font-size="7" text-anchor="middle">无鉴权兼容面</text>
+          <text data-node-label="" x="845" y="189" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">MCP Runtime</text>
+        <text x="845" y="205" class="t-muted" font-size="9" text-anchor="middle">MCP / Worker / Maintenance</text>
+        <text x="845" y="224" class="t-backend" font-size="7" text-anchor="middle">受信任集成</text>
         </g>
 
-        <g id="node-webuiRuntime" data-node-id="webuiRuntime" data-node-label="WebUI Runtime" tabindex="0" role="button" aria-label="聚焦WebUI Runtime，BFF / Agent / ACL / Audit / Worker, MedRAG-Nexus application process" aria-pressed="false" data-node-kind="security" data-node-sublabel="BFF / Agent / ACL / Audit / Worker" data-node-tag="独立知识域" data-node-context="MedRAG-Nexus application process">
-          <title>WebUI Runtime · BFF / Agent / ACL / Audit / Worker · MedRAG-Nexus application process · 独立知识域</title>
+        <g id="node-webuiRuntime" data-node-id="webuiRuntime" data-node-label="Backend Runtime" tabindex="0" role="button" aria-label="聚焦Backend Runtime，API / Agent / ACL / Audit / Worker, MedRAG-Nexus application process" aria-pressed="false" data-node-kind="security" data-node-sublabel="API / Agent / ACL / Audit / Worker" data-node-tag="独立知识域" data-node-context="MedRAG-Nexus application process">
+          <title>Backend Runtime · API / Agent / ACL / Audit / Worker · MedRAG-Nexus application process · 独立知识域</title>
           <rect x="750" y="410" width="190" height="82" rx="6" class="c-mask"/>
           <rect x="750" y="410" width="190" height="82" rx="6" class="c-security" stroke-width="1.5"/>
           <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(756 416) scale(0.6875)">
             <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
             <path d="m5.8 8 1.5 1.5 3-3"/>
           </g>
-          <text data-node-label="" x="845" y="449" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">WebUI Runtime</text>
-        <text x="845" y="465" class="t-muted" font-size="8.9" text-anchor="middle">BFF / Agent / ACL / Audit / Worker</text>
+          <text data-node-label="" x="845" y="449" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Backend Runtime</text>
+        <text x="845" y="465" class="t-muted" font-size="8.9" text-anchor="middle">API / Agent / ACL / Audit / Worker</text>
         <text x="845" y="484" class="t-security" font-size="7" text-anchor="middle">独立知识域</text>
         </g>
 
@@ -414,29 +414,29 @@ rect.c-bg-rect { fill: var(--bg); }
           <rect x="218" y="196" width="34" height="14" rx="3" class="c-mask"/>
           <text x="235" y="206" class="t-backend" font-size="8" text-anchor="middle">HTTPS</text>
         </g>
-        <g data-edge-from="nextjs" data-edge-to="fastapi" data-edge-label="/webui/* BFF" data-edge-key="1" data-edge-id="nextToApi">
-          <rect x="426.2" y="253.5" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="460" y="263.5" class="t-security" font-size="8" text-anchor="middle">/webui/* BFF</text>
+        <g data-edge-from="nextjs" data-edge-to="fastapi" data-edge-label="/backend/api/v1 proxy" data-edge-key="1" data-edge-id="nextToApi">
+          <rect x="401" y="253.5" width="118" height="14" rx="3" class="c-mask"/>
+          <text x="460" y="263.5" class="t-security" font-size="8" text-anchor="middle">/backend/api/v1 proxy</text>
         </g>
         <g data-edge-from="clients" data-edge-to="fastapi" data-edge-label="/api/v1 + /mcp" data-edge-key="2" data-edge-id="clientsToApi">
           <rect x="306.4" y="385.5" width="77.2" height="14" rx="3" class="c-mask"/>
           <text x="345" y="395.5" class="t-backend" font-size="8" text-anchor="middle">/api/v1 + /mcp</text>
         </g>
-        <g data-edge-from="fastapi" data-edge-to="publicRuntime" data-edge-label="公开请求" data-edge-key="3" data-edge-id="apiToPublic">
-          <rect x="685.8" y="241" width="48.4" height="14" rx="3" class="c-mask"/>
-          <text x="710" y="251" class="t-muted" font-size="8" text-anchor="middle">公开请求</text>
+        <g data-edge-from="fastapi" data-edge-to="publicRuntime" data-edge-label="MCP 请求" data-edge-key="3" data-edge-id="apiToPublic">
+          <rect x="683" y="241" width="54" height="14" rx="3" class="c-mask"/>
+          <text x="710" y="251" class="t-muted" font-size="8" text-anchor="middle">MCP 请求</text>
         </g>
-        <g data-edge-from="fastapi" data-edge-to="webuiRuntime" data-edge-label="Session + capability" data-edge-key="4" data-edge-id="apiToWebui">
-          <rect x="657" y="378" width="106" height="14" rx="3" class="c-mask"/>
-          <text x="710" y="388" class="t-security" font-size="8" text-anchor="middle">Session + capability</text>
+        <g data-edge-from="fastapi" data-edge-to="webuiRuntime" data-edge-label="Session + ACL" data-edge-key="4" data-edge-id="apiToWebui">
+          <rect x="673" y="378" width="74" height="14" rx="3" class="c-mask"/>
+          <text x="710" y="388" class="t-security" font-size="8" text-anchor="middle">Session + ACL</text>
         </g>
-        <g data-edge-from="publicRuntime" data-edge-to="stores" data-edge-label="public namespaces" data-edge-key="5" data-edge-id="publicToStores">
-          <rect x="939.2" y="237" width="91.6" height="14" rx="3" class="c-mask"/>
-          <text x="985" y="247" class="t-muted" font-size="8" text-anchor="middle">public namespaces</text>
+        <g data-edge-from="publicRuntime" data-edge-to="stores" data-edge-label="mcp namespaces" data-edge-key="5" data-edge-id="publicToStores">
+          <rect x="944" y="237" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="985" y="247" class="t-muted" font-size="8" text-anchor="middle">mcp namespaces</text>
         </g>
-        <g data-edge-from="webuiRuntime" data-edge-to="stores" data-edge-label="webui namespaces" data-edge-key="6" data-edge-id="webuiToStores">
-          <rect x="941.6" y="374" width="86.8" height="14" rx="3" class="c-mask"/>
-          <text x="985" y="384" class="t-security" font-size="8" text-anchor="middle">webui namespaces</text>
+        <g data-edge-from="webuiRuntime" data-edge-to="stores" data-edge-label="backend namespaces" data-edge-key="6" data-edge-id="webuiToStores">
+          <rect x="934" y="374" width="102" height="14" rx="3" class="c-mask"/>
+          <text x="985" y="384" class="t-security" font-size="8" text-anchor="middle">backend namespaces</text>
         </g>
 
         <!-- Boundary labels (foreground masks keep routes out of titles) -->

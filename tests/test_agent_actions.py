@@ -234,12 +234,12 @@ async def test_confirmed_create_actions_reuse_webui_api_routes(tmp_path) -> None
 
     assert executor._request_spec(create_user, None) == (
         "POST",
-        "/api/webui/v1/users",
+        "/api/v1/users",
         {"user_id": "computer-domain", "user_name": "计算机域"},
     )
     assert executor._request_spec(create_workspace, None) == (
         "POST",
-        "/api/webui/v1/workspaces",
+        "/api/v1/workspaces",
         {"user_id": "computer-domain", "workspace_name": "技术库"},
     )
 
@@ -308,7 +308,7 @@ async def test_every_interactive_tool_has_a_confirmed_webui_request(tmp_path) ->
 
     assert requests["add_text_resource"] == (
         "POST",
-        "/api/webui/v1/workspaces/workspace-1/resources",
+        "/api/v1/workspaces/workspace-1/resources",
         {"type": "str", "content": "测试内容"},
     )
     assert "confirm_name=%E8%B5%84%E6%96%99%E5%BA%93" in requests["delete_workspace"][1]

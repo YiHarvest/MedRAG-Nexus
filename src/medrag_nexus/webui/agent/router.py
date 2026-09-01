@@ -12,6 +12,7 @@ from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse
 
 from medrag_nexus.core.models import APIModel
+from medrag_nexus.core.paths import AGENT_API_PREFIX
 from medrag_nexus.webui.policy_store import KnowledgePolicyStore
 from medrag_nexus.webui.router import DEFAULT_COOKIE_NAME, WebUiPrincipal, create_principal_dependency
 from medrag_nexus.webui.store import WebUiStore
@@ -60,7 +61,7 @@ def create_agent_router(
     principal_dependency = create_principal_dependency(webui_store, cookie_name=cookie_name)
     principal_dep = Depends(principal_dependency)
     executor = ConfirmedActionExecutor(cookie_name=cookie_name)
-    router = APIRouter(prefix="/api/webui/v1/agent", tags=["WebUI Agent"])
+    router = APIRouter(prefix=AGENT_API_PREFIX, tags=["Agent"])
 
     @router.get("/actions/{action_id}")
     async def get_action(action_id: str, caller: WebUiPrincipal = principal_dep) -> dict[str, Any]:
@@ -169,9 +170,7 @@ def create_agent_router(
         except Exception as exc:
             raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_input", "安全表单格式无效") from exc
         allowed_fields = (
-            {"current_password", "new_password"}
-            if action.tool_name == "change_own_password"
-            else {"new_password"}
+            {"current_password", "new_password"} if action.tool_name == "change_own_password" else {"new_password"}
         )
         if set(body.values) != allowed_fields:
             raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "invalid_input", "安全表单字段无效")

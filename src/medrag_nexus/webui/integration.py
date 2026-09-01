@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from medrag_nexus.core.config import Settings
+from medrag_nexus.core.paths import API_V1_PREFIX, HEALTH_API_PREFIX
 from medrag_nexus.services.runtime import Runtime
 
 from .agent import AgentStore, ArtifactService, build_agent_tool_registry
@@ -29,6 +30,12 @@ from .policy_store import KnowledgePolicyStore
 from .router import DEFAULT_COOKIE_NAME, create_webui_router
 from .security import WEBUI_LOCK_COOKIE_NAME, PasswordService, verify_webui_lock_session
 from .store import AccountConflictError, WebUiStore
+
+
+def _is_protected_api_path(path: str) -> bool:
+    """Return whether a path belongs to the authenticated v1 business API."""
+
+    return path.startswith(f"{API_V1_PREFIX}/") and not path.startswith(f"{HEALTH_API_PREFIX}/")
 
 
 class WebUiFeature:
@@ -101,7 +108,7 @@ class WebUiFeature:
         async def audit_webui_requests(request: Request, call_next):
             """记录全部 WebUI 请求；密码、正文和 Cookie 永不进入日志。"""
 
-            if not request.url.path.startswith("/api/webui/v1/"):
+            if not _is_protected_api_path(request.url.path):
                 return await call_next(request)
             supplied_request_id = request.headers.get("x-request-id", "").strip()
             request_id = supplied_request_id[:128] if supplied_request_id else uuid4().hex
@@ -178,11 +185,15 @@ class WebUiFeature:
         async def protect_webui_cookie_mutations(request: Request, call_next):
             """验证外层门锁，并拒绝跨站修改 WebUI 数据。"""
 
-            is_webui_api = request.url.path.startswith("/api/webui/v1/")
+            is_webui_api = _is_protected_api_path(request.url.path)
             lock_password = self.settings.webui_lock_password.strip()
-            if is_webui_api and lock_password and not verify_webui_lock_session(
-                request.cookies.get(WEBUI_LOCK_COOKIE_NAME),
-                lock_password,
+            if (
+                is_webui_api
+                and lock_password
+                and not verify_webui_lock_session(
+                    request.cookies.get(WEBUI_LOCK_COOKIE_NAME),
+                    lock_password,
+                )
             ):
                 return JSONResponse(
                     status_code=401,
@@ -282,9 +293,7 @@ class WebUiFeature:
                     configured.append(
                         RegisterRequest(
                             login_name=username,
-                            display_name=str(
-                                getattr(self.settings, "webui_superadmin_display_name", "超级管理员")
-                            ),
+                            display_name=str(getattr(self.settings, "webui_superadmin_display_name", "超级管理员")),
                             password=password,
                         )
                     )

@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import sys
-
 import uvicorn
 
 from medrag_nexus.core.config import get_settings
 
 from .application import create_app as _create_app
-from .services import FileService, dependency_health, readiness, retrieve, stream_chat
 
 
 def create_app(runtime=None, *, webui_runtime=None):
-    """兼容原有应用工厂入口，并支持测试时替换服务依赖。"""
-    return _create_app(runtime, webui_runtime=webui_runtime, services=sys.modules[__name__])
+    """创建统一的后端 HTTP API、Worker 与 MCP 应用。"""
+    return _create_app(runtime, webui_runtime=webui_runtime)
 
 
 app = create_app()
@@ -31,12 +28,7 @@ def run() -> None:
 
 
 __all__ = [
-    "FileService",
     "app",
     "create_app",
-    "dependency_health",
-    "readiness",
-    "retrieve",
     "run",
-    "stream_chat",
 ]

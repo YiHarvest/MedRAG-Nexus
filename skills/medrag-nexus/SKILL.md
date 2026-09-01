@@ -5,7 +5,7 @@ description: 供 AgentHub 智能体通过 MedRAG-Nexus MCP 在指定用户和 Wo
 
 # MedRAG-Nexus（AgentHub）
 
-使用本技能时，只在调用方明确给出的 `user_id` 和 `workspace_id` 范围内操作。服务当前不做鉴权，因此不要猜测、复用或跨用户传递 Workspace ID。
+使用本技能时，只在调用方明确给出的 `user_id` 和 `workspace_id` 范围内操作。MCP 是面向受信任 AgentHub 的独立集成入口，不使用 REST 账号 Session，因此不要猜测、复用或跨用户传递 Workspace ID。
 
 ## 工具选择
 
@@ -37,7 +37,7 @@ description: 供 AgentHub 智能体通过 MedRAG-Nexus MCP 在指定用户和 Wo
 - 不传任何文件字段。
 - 字符串原文保存为 JSONL，不生成 Markdown。
 
-`user_id`、`workspace_id`、`workspace_name` 必须由前端或调用方明确提供。MedRAG-Nexus 不根据其中任何两个字段生成第三个字段，也不要让智能体自行猜测 Workspace ID。新建 Workspace 时，缺少任一字段就停止调用并向上游索取。
+MCP 的 `user_id`、`workspace_id`、`workspace_name` 必须由调用方明确提供。不要让智能体自行猜测 Workspace ID。REST Backend API 的账号、知识域和 Workspace 创建规则不同，见接口契约。
 
 `workspace_id` 是调用方提供的非空安全字符串标识符。若该 ID 已存在，传入的用户和名称必须与原绑定关系一致。
 

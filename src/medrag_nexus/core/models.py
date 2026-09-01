@@ -248,7 +248,7 @@ class UserListResponse(APIModel):
 
 
 class UserCreateRequest(APIModel):
-    """由 WebUI 创建的用户；user_id 由前端生成。"""
+    """知识域记录；REST 创建时 user_id 默认由后端生成。"""
 
     user_id: Identifier
     user_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]

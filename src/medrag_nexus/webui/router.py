@@ -8,6 +8,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
 
+from medrag_nexus.core.paths import API_V1_PREFIX
+
 from .models import (
     AccountCapabilities,
     AccountListResponse,
@@ -42,7 +44,7 @@ from .store import (
     WebUiStore,
 )
 
-DEFAULT_COOKIE_NAME = "jd_webui_session"
+DEFAULT_COOKIE_NAME = "medrag_nexus_account_session"
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,7 +125,7 @@ def create_webui_router(
     catalog_read = require_permission(principal_dependency, "webui.permission.catalog.read", engine)
     group_manage = require_permission(principal_dependency, "webui.permission.group.manage", engine)
 
-    router = APIRouter(prefix="/api/webui/v1", tags=["WebUI 认证"])
+    router = APIRouter(prefix=API_V1_PREFIX, tags=["认证与账号"])
 
     @router.post("/auth/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
     async def register(payload: RegisterRequest, response: Response) -> SessionResponse:
@@ -392,9 +394,7 @@ def create_webui_router(
         groups = await store.list_permission_groups()
         return PermissionGroupListResponse(groups=groups, total=len(groups))
 
-    @router.post(
-        "/permission-groups", response_model=PermissionGroupResponse, status_code=status.HTTP_201_CREATED
-    )
+    @router.post("/permission-groups", response_model=PermissionGroupResponse, status_code=status.HTTP_201_CREATED)
     async def create_permission_group(
         payload: CreatePermissionGroupRequest,
         principal: Annotated[WebUiPrincipal, Depends(group_manage)],

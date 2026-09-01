@@ -1,6 +1,6 @@
 import { type PermissionGroupDefinition, WebUiApiError } from "@/lib/webui-api";
 
-const WEBUI_API_ROOT = "/backend/api/webui/v1";
+const WEBUI_API_ROOT = "/backend/api/v1";
 
 interface ErrorEnvelope {
   detail?: string | { code?: string; message?: string };

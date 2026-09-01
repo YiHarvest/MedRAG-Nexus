@@ -560,7 +560,7 @@ class ChatService:
                     },
                 )
                 return
-            # 公开 API 保留范围较窄的只读快速路径。WebUI Agent 使用实时权限注册表，
+            # MCP 保留范围较窄的只读快速路径。Backend Agent 使用实时权限注册表，
             # 模型只能从当前账号此刻可见的工具定义中选择。
             fast_decided, routed_call = (
                 (False, None) if self.agent_registry is not None else _fast_path_intent(query)

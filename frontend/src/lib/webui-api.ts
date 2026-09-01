@@ -7,7 +7,7 @@ import type {
   WorkspaceListItem,
 } from "@/lib/types";
 
-const WEBUI_API_ROOT = "/backend/api/webui/v1";
+const WEBUI_API_ROOT = "/backend/api/v1";
 
 export interface WebUiAccount {
   account_id: string;

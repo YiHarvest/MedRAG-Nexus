@@ -78,7 +78,7 @@ class InvalidPolicyBindingError(ValueError):
 
 
 class KnowledgePolicyStore:
-    """读写 WebUI 旁路策略，不修改公共 API 数据结构。"""
+    """读写 Backend API 旁路策略，不修改 MCP 数据结构。"""
 
     def __init__(self, path: Path):
         self.path = path

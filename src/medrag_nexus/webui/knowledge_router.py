@@ -33,6 +33,7 @@ from medrag_nexus.core.models import (
     TaskResponse,
     WorkspaceRecord,
 )
+from medrag_nexus.core.paths import API_V1_PREFIX
 from medrag_nexus.services.chat import stream_chat
 from medrag_nexus.services.files import FileService
 from medrag_nexus.services.health import dependency_health
@@ -224,7 +225,7 @@ def create_knowledge_router(
 ) -> APIRouter:
     principal_dependency = create_principal_dependency(webui_store, cookie_name=cookie_name)
     allowed_levels = frozenset(level.value for level in webui_store.registry.levels)
-    router = APIRouter(prefix="/api/webui/v1", tags=["WebUI 知识权限"])
+    router = APIRouter(prefix=API_V1_PREFIX, tags=["知识域与知识库"])
     principal_dependency_dep = Depends(principal_dependency)
 
     async def principal(
@@ -241,10 +242,7 @@ def create_knowledge_router(
     principal_dep = Depends(principal)
 
     def require_superadmin(caller: WebUiPrincipal, permission: str) -> None:
-        if (
-            caller.account.permission_level < 1000
-            or permission not in caller.permissions
-        ):
+        if caller.account.permission_level < 1000 or permission not in caller.permissions:
             raise _error(status.HTTP_403_FORBIDDEN, "permission_denied", "superadmin permission is required")
 
     async def require_workspace(
@@ -369,14 +367,11 @@ def create_knowledge_router(
                 continue
             if binding.principal_type == "account":
                 target = await webui_store.get_account(binding.principal_id)
-                permissions = (
-                    await webui_store.permission_keys(binding.principal_id) if target is not None else set()
-                )
+                permissions = await webui_store.permission_keys(binding.principal_id) if target is not None else set()
             else:
                 if group_permissions is None:
                     group_permissions = {
-                        group.key: set(group.permissions)
-                        for group in await webui_store.list_permission_groups()
+                        group.key: set(group.permissions) for group in await webui_store.list_permission_groups()
                     }
                 permissions = group_permissions.get(binding.principal_id, set())
             if action not in permissions:
@@ -775,9 +770,7 @@ def create_knowledge_router(
         )
         if not allowed:
             raise _error(status.HTTP_403_FORBIDDEN, "permission_denied", "workspace creation is not allowed")
-        _validate_thresholds(
-            caller, payload.read_min_level, payload.cud_min_level, allowed_levels=allowed_levels
-        )
+        _validate_thresholds(caller, payload.read_min_level, payload.cud_min_level, allowed_levels=allowed_levels)
         name = normalize_workspace_name(payload.workspace_name)
         workspace = WorkspaceRecord(
             workspace_id=f"workspace_{uuid4()}",
@@ -863,9 +856,7 @@ def create_knowledge_router(
             action="webui.workspace.policy.manage",
             permission="webui.workspace.policy.manage",
         )
-        _validate_thresholds(
-            caller, payload.read_min_level, payload.cud_min_level, allowed_levels=allowed_levels
-        )
+        _validate_thresholds(caller, payload.read_min_level, payload.cud_min_level, allowed_levels=allowed_levels)
         before = await policies.get_workspace_policy(workspace_id)
         after = await policies.set_workspace_policy(
             workspace_id,

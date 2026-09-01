@@ -54,14 +54,14 @@ async def test_confirm_then_secure_input_creates_account_without_persisting_pass
         risk_level="sensitive",
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("jd_webui_session", token)
-        confirmed = await client.post(f"/api/webui/v1/agent/actions/{action.action_id}/confirm", json={})
+        client.cookies.set("medrag_nexus_account_session", token)
+        confirmed = await client.post(f"/api/v1/agent/actions/{action.action_id}/confirm", json={})
         assert confirmed.status_code == 200
         assert confirmed.json()["status"] == "confirmed"
         assert confirmed.json()["input"]["input_type"] == "password"
 
         completed = await client.post(
-            f"/api/webui/v1/agent/actions/{action.action_id}/input",
+            f"/api/v1/agent/actions/{action.action_id}/input",
             json={"values": {"new_password": "OperatorPassword!123"}},
         )
         assert completed.status_code == 200, completed.text
@@ -87,8 +87,8 @@ async def test_change_password_requires_click_confirmation_before_secure_input(t
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("jd_webui_session", token)
-        confirmed = await client.post(f"/api/webui/v1/agent/actions/{action.action_id}/confirm", json={})
+        client.cookies.set("medrag_nexus_account_session", token)
+        confirmed = await client.post(f"/api/v1/agent/actions/{action.action_id}/confirm", json={})
 
     assert confirmed.status_code == 200
     assert confirmed.json()["status"] == "confirmed"
@@ -106,15 +106,15 @@ async def test_artifact_link_allows_authorized_download_and_can_be_revoked(tmp_p
         required_permissions=("webui.agent.export",),
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("jd_webui_session", token)
-        downloaded = await client.get(f"/api/webui/v1/agent/artifacts/{artifact.artifact_id}/download")
+        client.cookies.set("medrag_nexus_account_session", token)
+        downloaded = await client.get(f"/api/v1/agent/artifacts/{artifact.artifact_id}/download")
         assert downloaded.status_code == 200
         assert downloaded.content == b"docx-bytes"
         assert "private, no-store" in downloaded.headers["cache-control"]
 
-        revoked = await client.delete(f"/api/webui/v1/agent/artifacts/{artifact.artifact_id}")
+        revoked = await client.delete(f"/api/v1/agent/artifacts/{artifact.artifact_id}")
         assert revoked.status_code == 204
-        unavailable = await client.get(f"/api/webui/v1/agent/artifacts/{artifact.artifact_id}/download")
+        unavailable = await client.get(f"/api/v1/agent/artifacts/{artifact.artifact_id}/download")
         assert unavailable.status_code == 410
 
     assert await accounts.list_audit_events(limit=20, offset=0)
@@ -131,8 +131,8 @@ async def test_confirmation_rechecks_current_permission(tmp_path) -> None:
         risk_level="destructive",
     )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("jd_webui_session", token)
-        denied = await client.post(f"/api/webui/v1/agent/actions/{action.action_id}/confirm", json={})
+        client.cookies.set("medrag_nexus_account_session", token)
+        denied = await client.post(f"/api/v1/agent/actions/{action.action_id}/confirm", json={})
     assert denied.status_code == 403
     assert denied.json()["detail"]["code"] == "permission_denied"
     stored = await actions.get_action(action.action_id, account_id=admin.account_id)
@@ -158,9 +158,9 @@ async def test_repeated_confirmation_returns_current_terminal_status(tmp_path) -
     )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        client.cookies.set("jd_webui_session", token)
+        client.cookies.set("medrag_nexus_account_session", token)
         repeated = await client.post(
-            f"/api/webui/v1/agent/actions/{action.action_id}/confirm",
+            f"/api/v1/agent/actions/{action.action_id}/confirm",
             json={},
         )
 

@@ -315,41 +315,41 @@ class ConfirmedActionExecutor:
         name = action.tool_name
         if name == "request_file_upload":
             workspace_id = quote(str(args["workspace_id"]), safe="")
-            return "POST", f"/api/webui/v1/workspaces/{workspace_id}/resources", {}
+            return "POST", f"/api/v1/workspaces/{workspace_id}/resources", {}
         if name == "change_own_password":
-            return "POST", "/api/webui/v1/account/password", dict(secure_values or {})
+            return "POST", "/api/v1/account/password", dict(secure_values or {})
         if name == "create_account":
             payload = {**args, "password": str((secure_values or {}).get("new_password", ""))}
-            return "POST", "/api/webui/v1/accounts", payload
+            return "POST", "/api/v1/accounts", payload
         if name == "reset_account_password":
             account_id = quote(str(args.pop("account_id")), safe="")
             payload = {**args, "new_password": str((secure_values or {}).get("new_password", ""))}
-            return "POST", f"/api/webui/v1/accounts/{account_id}/password/reset", payload
+            return "POST", f"/api/v1/accounts/{account_id}/password/reset", payload
         path_specs: dict[str, tuple[str, str, str | None]] = {
-            "create_knowledge_user": ("POST", "/api/webui/v1/users", None),
-            "rename_knowledge_user": ("PATCH", "/api/webui/v1/users/{user_id}", "user_id"),
-            "create_workspace": ("POST", "/api/webui/v1/workspaces", None),
-            "rename_workspace": ("PATCH", "/api/webui/v1/workspaces/{workspace_id}", "workspace_id"),
-            "add_text_resource": ("POST", "/api/webui/v1/workspaces/{workspace_id}/resources", "workspace_id"),
-            "revoke_artifact": ("DELETE", "/api/webui/v1/agent/artifacts/{artifact_id}", "artifact_id"),
-            "update_account": ("PATCH", "/api/webui/v1/accounts/{account_id}", "account_id"),
-            "bind_account_to_user": ("PUT", "/api/webui/v1/accounts/{account_id}/binding", "account_id"),
-            "create_permission_group": ("POST", "/api/webui/v1/permission-groups", None),
-            "update_permission_group": ("PATCH", "/api/webui/v1/permission-groups/{group_key}", "group_key"),
-            "delete_permission_group": ("DELETE", "/api/webui/v1/permission-groups/{group_key}", "group_key"),
+            "create_knowledge_user": ("POST", "/api/v1/users", None),
+            "rename_knowledge_user": ("PATCH", "/api/v1/users/{user_id}", "user_id"),
+            "create_workspace": ("POST", "/api/v1/workspaces", None),
+            "rename_workspace": ("PATCH", "/api/v1/workspaces/{workspace_id}", "workspace_id"),
+            "add_text_resource": ("POST", "/api/v1/workspaces/{workspace_id}/resources", "workspace_id"),
+            "revoke_artifact": ("DELETE", "/api/v1/agent/artifacts/{artifact_id}", "artifact_id"),
+            "update_account": ("PATCH", "/api/v1/accounts/{account_id}", "account_id"),
+            "bind_account_to_user": ("PUT", "/api/v1/accounts/{account_id}/binding", "account_id"),
+            "create_permission_group": ("POST", "/api/v1/permission-groups", None),
+            "update_permission_group": ("PATCH", "/api/v1/permission-groups/{group_key}", "group_key"),
+            "delete_permission_group": ("DELETE", "/api/v1/permission-groups/{group_key}", "group_key"),
             "leave_own_permission_group": (
                 "DELETE",
-                "/api/webui/v1/account/permission-groups/{group_key}",
+                "/api/v1/account/permission-groups/{group_key}",
                 "group_key",
             ),
-            "update_user_policy": ("PUT", "/api/webui/v1/users/{user_id}/policy", "user_id"),
-            "update_workspace_policy": ("PUT", "/api/webui/v1/workspaces/{workspace_id}/policy", "workspace_id"),
-            "replace_user_bindings": ("PUT", "/api/webui/v1/users/{user_id}/bindings", "user_id"),
-            "replace_workspace_bindings": ("PUT", "/api/webui/v1/workspaces/{workspace_id}/bindings", "workspace_id"),
-            "delete_file": ("DELETE", "/api/webui/v1/workspaces/{workspace_id}/files/{file_id}", None),
-            "delete_text_resource": ("DELETE", "/api/webui/v1/workspaces/{workspace_id}/strings/{content_hash}", None),
-            "delete_workspace": ("DELETE", "/api/webui/v1/workspaces/{workspace_id}", None),
-            "delete_knowledge_user": ("DELETE", "/api/webui/v1/users/{user_id}", None),
+            "update_user_policy": ("PUT", "/api/v1/users/{user_id}/policy", "user_id"),
+            "update_workspace_policy": ("PUT", "/api/v1/workspaces/{workspace_id}/policy", "workspace_id"),
+            "replace_user_bindings": ("PUT", "/api/v1/users/{user_id}/bindings", "user_id"),
+            "replace_workspace_bindings": ("PUT", "/api/v1/workspaces/{workspace_id}/bindings", "workspace_id"),
+            "delete_file": ("DELETE", "/api/v1/workspaces/{workspace_id}/files/{file_id}", None),
+            "delete_text_resource": ("DELETE", "/api/v1/workspaces/{workspace_id}/strings/{content_hash}", None),
+            "delete_workspace": ("DELETE", "/api/v1/workspaces/{workspace_id}", None),
+            "delete_knowledge_user": ("DELETE", "/api/v1/users/{user_id}", None),
         }
         if name not in path_specs:
             raise AgentExecutionError("unsupported_action", f"不支持执行操作：{name}")
