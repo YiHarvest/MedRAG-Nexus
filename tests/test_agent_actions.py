@@ -1,4 +1,4 @@
-"""Tests for durable, account-bound WebUI Agent action intents."""
+"""验证持久化且绑定账号的 WebUI Agent 操作意图。"""
 
 from __future__ import annotations
 

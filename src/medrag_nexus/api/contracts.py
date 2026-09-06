@@ -1,4 +1,4 @@
-"""OpenAPI metadata shared by the canonical backend API."""
+"""后端 API 共用的 OpenAPI 元数据。"""
 
 from medrag_nexus.core.models import HealthResponse
 

@@ -1,3 +1,5 @@
+"""验证不同运行模式的隔离配置。"""
+
 from pathlib import Path
 
 import pytest

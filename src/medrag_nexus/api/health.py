@@ -1,4 +1,4 @@
-"""Unauthenticated infrastructure health probes."""
+"""无需认证的基础设施健康检查。"""
 
 from __future__ import annotations
 
