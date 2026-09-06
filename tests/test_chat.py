@@ -1,3 +1,5 @@
+"""验证聊天服务的流式响应、工具调用与访问范围。"""
+
 from __future__ import annotations
 
 import json

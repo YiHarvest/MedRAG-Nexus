@@ -1,4 +1,4 @@
-"""Canonical HTTP API paths shared by backend routers and middleware."""
+"""后端路由与中间件共用的标准 HTTP API 路径。"""
 
 API_V1_PREFIX = "/api/v1"
 AGENT_API_PREFIX = f"{API_V1_PREFIX}/agent"

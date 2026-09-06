@@ -1,4 +1,4 @@
-"""Tests for temporary Agent artifacts and in-memory Word export."""
+"""验证临时 Agent 制品与内存中的 Word 导出。"""
 
 from __future__ import annotations
 

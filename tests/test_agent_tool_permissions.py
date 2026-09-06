@@ -1,3 +1,5 @@
+"""验证 Agent 工具的权限控制与授权边界。"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
