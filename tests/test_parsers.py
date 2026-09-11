@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-import pytest
-
 from medrag_nexus.pipeline.parsers import (
     _mineru_file_api,
     _mineru_http_client,
@@ -38,11 +36,22 @@ def test_text_sniff_allows_utf8_character_split_at_sample_boundary(tmp_path) -> 
     assert validate_file_type(path) == ".txt"
 
 
-def test_markdown_extension_is_not_supported(tmp_path) -> None:
+def test_markdown_extension_is_supported_as_text(tmp_path) -> None:
     path = tmp_path / "note.md"
     path.write_text("# 知识", encoding="utf-8")
-    with pytest.raises(ValueError, match="unsupported file extension"):
-        validate_file_type(path)
+    assert sniff_extension(path) == ".txt"
+    assert validate_file_type(path) == ".md"
+
+
+async def test_markdown_parser_preserves_markdown(tmp_path) -> None:
+    path = tmp_path / "note.md"
+    markdown = "# 知识\n\n- 条目一\n- 条目二"
+    path.write_text(markdown, encoding="utf-8")
+
+    result = await parse_file(path, object())  # type: ignore[arg-type]
+
+    assert result.parser == "text"
+    assert result.markdown == markdown
 
 
 def test_extension_mismatch_is_rejected(tmp_path) -> None:
