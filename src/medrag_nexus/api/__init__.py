@@ -1,6 +1,7 @@
 """FastAPI 应用工厂的公共入口。"""
 
 from .application import create_app
+from .composition import ApplicationFeature, FeatureLifecycle, RuntimeFeature, ServiceContainer
 
 
 def run() -> None:
@@ -10,4 +11,11 @@ def run() -> None:
     start()
 
 
-__all__ = ["create_app", "run"]
+__all__ = [
+    "ApplicationFeature",
+    "FeatureLifecycle",
+    "RuntimeFeature",
+    "ServiceContainer",
+    "create_app",
+    "run",
+]
