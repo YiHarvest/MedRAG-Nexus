@@ -9,9 +9,9 @@ from medrag_nexus.core.config import get_settings
 from .application import create_app as _create_app
 
 
-def create_app(runtime=None, *, backend_runtime=None):
+def create_app(runtime=None, *, backend_runtime=None, services=None, features=()):
     """创建统一的后端 HTTP API、Worker 与 MCP 应用。"""
-    return _create_app(runtime, backend_runtime=backend_runtime)
+    return _create_app(runtime, backend_runtime=backend_runtime, services=services, features=features)
 
 
 app = create_app()
