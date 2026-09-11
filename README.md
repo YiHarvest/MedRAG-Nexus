@@ -310,6 +310,10 @@ REST 业务接口统一使用 `/api/v1/*`，由后端账号 Session、权限节�
 
 两套 Runtime 可以复用相同的 Redis、Elasticsearch、Milvus 和模型服务连接，但命名空间与本地权威数据完全分离，避免账号业务数据和外部 AgentHub 调用方混用。
 
+应用工厂支持通过类型化 `ServiceContainer` 替换 Runtime 依赖，并通过实现 `ApplicationFeature` 的
+`install/start/close` 生命周期挂载可选功能。Feature 按声明顺序安装和启动、按逆序关闭；这提供了
+Core 可装配边界，但权限、任务和存储实现仍由 Runtime 内部统一维护，并非任意组件都已成为外部插件。
+
 上方 SVG 架构图使用 Archify 从本仓库运行时事实生成，并通过 showcase 级结构、连线、标签与桌面可读性校验。
 
 ---
