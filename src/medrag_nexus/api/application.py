@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from medrag_nexus.core.config import get_settings
-from medrag_nexus.mcp import bind_runtime, mcp_http_app
+from medrag_nexus.mcp import mcp_http_app
 from medrag_nexus.services.runtime import Runtime
 
+from .composition import ApplicationFeature, FeatureLifecycle, RuntimeFeature, ServiceContainer
 from .contracts import OPENAPI_TAGS
 from .docs import install_documentation_routes
 from .health import create_health_router
@@ -31,34 +31,23 @@ def create_app(
     runtime: Runtime | None = None,
     *,
     backend_runtime: Runtime | None = None,
+    services: ServiceContainer | None = None,
+    features: Iterable[ApplicationFeature] = (),
 ) -> FastAPI:
-    settings = get_settings()
-    selected_runtime = runtime or Runtime(settings)
-    selected_settings = getattr(selected_runtime, "settings", settings)
-    selected_backend_runtime = backend_runtime or (
-        selected_runtime if runtime is not None else Runtime(settings.backend_runtime_settings())
-    )
-    lifecycle = ApplicationLifecycle(selected_backend_runtime, selected_settings)
+    if services is not None and (runtime is not None or backend_runtime is not None):
+        raise ValueError("services cannot be combined with runtime or backend_runtime")
+    container = services or ServiceContainer.build(runtime, backend_runtime=backend_runtime)
+    application_feature = ApplicationLifecycle(container.backend_runtime, container.settings)
+    feature_lifecycle = FeatureLifecycle((RuntimeFeature(container), application_feature, *features))
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        app.state.runtime = selected_runtime
-        app.state.backend_runtime = selected_backend_runtime
-        if runtime is None:
-            await selected_runtime.start()
-        if selected_backend_runtime is not selected_runtime and backend_runtime is None:
-            await selected_backend_runtime.start()
-        await lifecycle.start()
-        bind_runtime(selected_runtime)
+        await feature_lifecycle.start()
         try:
             async with mcp_http_app.router.lifespan_context(mcp_http_app):
                 yield
         finally:
-            await lifecycle.close()
-            if selected_backend_runtime is not selected_runtime and backend_runtime is None:
-                await selected_backend_runtime.close()
-            if runtime is None:
-                await selected_runtime.close()
+            await feature_lifecycle.close()
 
     app = FastAPI(
         title="MedRAG-Nexus 知识库服务",
@@ -69,8 +58,8 @@ def create_app(
         lifespan=lifespan,
         docs_url=None,
     )
-    lifecycle.install(app)
-    install_http_infrastructure(app, max_file_bytes=settings.max_file_bytes)
+    feature_lifecycle.install(app)
+    install_http_infrastructure(app, max_file_bytes=container.settings.max_file_bytes)
     install_documentation_routes(app)
     app.include_router(create_health_router())
     app.mount("/", mcp_http_app)
