@@ -42,14 +42,15 @@ from medrag_nexus.core.models import (
     WorkspaceStats,
     local_now,
 )
-from medrag_nexus.pipeline.parsers import validate_file_type
+from medrag_nexus.pipeline.parsers import SUPPORTED_EXTENSIONS, validate_file_type
 from medrag_nexus.services.callbacks import schedule_task_callback
 from medrag_nexus.services.runtime import Runtime
 
-SUPPORTED_FILE_EXTENSIONS = {".pdf", ".txt", ".docx"}
+SUPPORTED_FILE_EXTENSIONS = SUPPORTED_EXTENSIONS
 SUPPORTED_MIME_TYPES = {
     ".pdf": {"application/pdf"},
     ".txt": {"text/plain"},
+    ".md": {"text/markdown", "text/x-markdown", "text/plain"},
     ".docx": {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/wps-office.docx",
