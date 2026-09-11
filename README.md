@@ -211,7 +211,7 @@ MANAGE_REDIS=false ./scripts/stop.sh
 | 配置域 | 关键变量 | 说明 |
 | --- | --- | --- |
 | 应用监听 | `APP_HOST`、`APP_PORT`、`APP_LOG_LEVEL` | 后端默认监听 `0.0.0.0:28111` |
-| WebUI 监听 | `WEBUI_HOST`、`WEBUI_PORT`、`API_BASE_URL` | 启动脚本默认 WebUI 为 `0.0.0.0:22134` |
+| WebUI 监听 | `WEBUI_HOST`、`WEBUI_PORT`、`API_BASE_URL`、`WEBUI_HEALTH_URL` | 启动脚本默认 WebUI 为 `0.0.0.0:22134`，健康检查固定走本机地址 |
 | WebUI 安全 | `WEBUI_COOKIE_SECURE`、`WEBUI_LOCK_PASSWORD`、`WEBUI_TRUST_PROXY_HEADERS` | 反向代理后才开启可信代理头，并正确设置 hops |
 | MCP 数据 | `DATA_ROOT`、`SQLITE_PATH`、`ELASTICSEARCH_*_INDEX`、`MILVUS_COLLECTION` | MCP 集成使用 |
 | Backend 数据 | `WEBUI_DATA_ROOT`、`WEBUI_SQLITE_PATH`、`WEBUI_ELASTICSEARCH_*_INDEX`、`WEBUI_MILVUS_COLLECTION` | 与 MCP 数据隔离 |
