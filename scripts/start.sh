@@ -51,6 +51,8 @@ API_ORIGIN="${API_BASE_URL:-http://127.0.0.1:${APP_PORT}}"
 API_HEALTH_URL="${API_HEALTH_URL:-http://127.0.0.1:${APP_PORT}/api/v1/health/live}"
 WEBUI_DEV_ORIGIN="${WEBUI_PUBLIC_ORIGIN:-http://127.0.0.1:${WEBUI_PORT}}"
 WEBUI_URL="${WEBUI_URL:-$WEBUI_DEV_ORIGIN}"
+# 展示用公网地址不能作为本机进程的就绪探针。
+WEBUI_HEALTH_URL="${WEBUI_HEALTH_URL:-http://127.0.0.1:${WEBUI_PORT}}"
 WEBUI_ALLOWED_DEV_ORIGINS="${ALLOWED_DEV_ORIGINS:-127.0.0.1}"
 
 c_ok()   { printf '\033[0;32m%s\033[0m\n' "$*"; }
@@ -93,7 +95,7 @@ for command_name in uv npm curl setsid ps; do
   }
 done
 
-if [ ! -d .venv ]; then
+if [ ! -x .venv/bin/python ]; then
   c_err "未找到 Python 虚拟环境。请先执行：./scripts/install.sh"
   exit 1
 fi
@@ -178,6 +180,18 @@ show_failure() {
   exit 1
 }
 
+# 复用项目虚拟环境中的 Redis 客户端，不要求宿主机额外安装 redis-cli。
+redis_is_ready() {
+  env REDIS_URL="$EFFECTIVE_REDIS_URL" "$PROJECT_ROOT/.venv/bin/python" -c '
+import os
+import sys
+from redis import Redis
+
+with Redis.from_url(os.environ["REDIS_URL"], socket_connect_timeout=2, socket_timeout=2) as client:
+    sys.exit(0 if client.ping() else 1)
+' >/dev/null 2>&1
+}
+
 # ---------- Redis ----------
 EFFECTIVE_REDIS_URL="${REDIS_URL:-}"
 if [ "$MANAGE_REDIS" = "true" ]; then
@@ -225,12 +239,15 @@ if [ "$MANAGE_REDIS" = "true" ]; then
     fi
   fi
 
-  # 等待 Redis 真正就绪（从宿主机连接测试）
+  # 一键启动固定使用实际映射的 Compose Redis，避免 .env 中旧端口干扰。
+  EFFECTIVE_REDIS_URL="redis://127.0.0.1:${redis_port}/0"
+
+  # 容器内与宿主机均必须能完成 Redis PING。
   redis_ready=false
   for _ in $(seq 1 "$REDIS_WAIT_SECONDS"); do
     # 同时检查容器内和宿主机连接
     if [ "$(eval "$DOCKER_CMD compose exec -T redis redis-cli ping" 2>/dev/null || true)" = "PONG" ] && \
-       redis-cli -h 127.0.0.1 -p "$redis_port" ping 2>/dev/null | grep -q "PONG"; then
+       redis_is_ready; then
       redis_ready=true
       break
     fi
@@ -242,8 +259,6 @@ if [ "$MANAGE_REDIS" = "true" ]; then
     exit 1
   fi
 
-  # 一键启动模式固定使用本 Compose Redis，避免 .env 中旧端口与 compose.yaml 不一致。
-  EFFECTIVE_REDIS_URL="redis://127.0.0.1:${redis_port}/0"
   c_ok "Redis 就绪 ($EFFECTIVE_REDIS_URL)"
 elif [ -z "$EFFECTIVE_REDIS_URL" ]; then
   c_err "MANAGE_REDIS=false 时必须配置 REDIS_URL。"
@@ -307,7 +322,7 @@ WEBUI_PID_FILE="$PID_DIR/webui.pid"
 WEBUI_LOG="$PID_DIR/webui.log"
 
 webui_is_ready() {
-  curl -q --noproxy '*' -fsS -m 2 "$WEBUI_URL" >/dev/null 2>&1
+  curl -q --noproxy '*' -fsS -m 2 "$WEBUI_HEALTH_URL" >/dev/null 2>&1
 }
 
 if is_running "$WEBUI_PID_FILE" && ! webui_is_ready; then
@@ -386,7 +401,7 @@ all_services_ok=true
 
 # 验证 Redis
 if [ "$MANAGE_REDIS" = "true" ]; then
-  if redis-cli -h 127.0.0.1 -p "$redis_port" ping 2>/dev/null | grep -q "PONG"; then
+  if redis_is_ready; then
     c_ok "✓ Redis 验证通过 (127.0.0.1:$redis_port)"
   else
     c_err "✗ Redis 验证失败"
@@ -403,8 +418,8 @@ else
 fi
 
 # 验证 WebUI
-if curl -q --noproxy '*' -fsS -m 5 "$WEBUI_URL" >/dev/null 2>&1; then
-  c_ok "✓ WebUI 验证通过 ($WEBUI_URL)"
+if curl -q --noproxy '*' -fsS -m 5 "$WEBUI_HEALTH_URL" >/dev/null 2>&1; then
+  c_ok "✓ WebUI 验证通过 ($WEBUI_HEALTH_URL)"
 else
   c_err "✗ WebUI 验证失败"
   all_services_ok=false
