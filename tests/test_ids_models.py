@@ -128,6 +128,20 @@ def test_wps_docx_mime_is_supported() -> None:
     assert content.startswith(b"PK")
 
 
+@pytest.mark.parametrize("mime_type", ["text/markdown", "text/x-markdown", "text/plain"])
+def test_markdown_mime_is_supported(mime_type: str) -> None:
+    source = FileSource(
+        file_name="notes.md",
+        mime_type=mime_type,
+        content_base64=base64.b64encode(b"# Notes").decode(),
+    )
+
+    file_name, content = _decode_file(source, 1024)
+
+    assert file_name == "notes.md"
+    assert content == b"# Notes"
+
+
 def test_task_defaults_and_public_response_omits_internal_operation() -> None:
     task = TaskRecord(
         task_id=new_task_id(),

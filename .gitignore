@@ -26,6 +26,10 @@ build/
 *.egg-info/
 data/
 docs/
+!docs/
+docs/*
+!docs/assets/
+!docs/assets/**
 SimBrain/
 .agents/
 skills-lock.json

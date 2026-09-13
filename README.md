@@ -250,7 +250,7 @@ docker compose stop redis
 
 WebUI 使用 Next.js 16 与 Carbon Design System。浏览器只调用后端注册和业务 API；知识身份、Workspace 权限和 Agent 工具能力全部由 Python 后端决定并再次校验。
 
-- 支持 PDF、TXT、DOCX 拖拽上传与普通文本入库，并展示异步任务进度。
+- 支持 PDF、TXT、DOCX、Markdown 拖拽上传与普通文本入库，并展示异步任务进度。
 - 支持知识域、Workspace、文件、字符串、检索与聊天。
 - 成员等级为 `0 / 1 / 2 / 1000`，自定义权限组的权限节点取并集。
 - UserID 与 Workspace ACL 默认拒绝，显式 `deny` 优先；Workspace 还必须通过父 UserID 权限链。
@@ -279,7 +279,7 @@ REST 业务接口统一使用 `/api/v1/*`，由后端账号 Session、权限节�
 | --- | --- | --- |
 | HTTP | `/api/v1/auth/*`、`/api/v1/account*` | 后端注册、登录、Session、账号与密码管理 |
 | HTTP | `/api/v1/users*`、`/api/v1/workspaces*` | 后端创建知识域/知识库并执行权限与 ACL 校验 |
-| HTTP | `POST /api/v1/workspaces/{id}/resources` | 新增 PDF、TXT、DOCX 或字符串，异步返回任务 |
+| HTTP | `POST /api/v1/workspaces/{id}/resources` | 新增 PDF、TXT、DOCX、Markdown 或字符串，异步返回任务 |
 | HTTP | `POST /api/v1/retrieval`、`POST /api/v1/chat/stream` | 混合检索与流式聊天 |
 | HTTP | `/api/v1/tasks/{task_id}` | 查询或取消异步任务 |
 | HTTP | `/api/v1/agent/*` | Agent 动作、确认和临时制品 |
@@ -309,6 +309,10 @@ REST 业务接口统一使用 `/api/v1/*`，由后端账号 Session、权限节�
 | Backend Runtime | `/api/v1/*`（Next.js 经 `/backend/api/v1/*` 代理） | `WEBUI_SQLITE_PATH`、`WEBUI_DATA_ROOT` | `WEBUI_ELASTICSEARCH_*_INDEX`、`WEBUI_MILVUS_COLLECTION` | `knowledge:webui:tasks` |
 
 两套 Runtime 可以复用相同的 Redis、Elasticsearch、Milvus 和模型服务连接，但命名空间与本地权威数据完全分离，避免账号业务数据和外部 AgentHub 调用方混用。
+
+应用工厂支持通过类型化 `ServiceContainer` 替换 Runtime 依赖，并通过实现 `ApplicationFeature` 的
+`install/start/close` 生命周期挂载可选功能。Feature 按声明顺序安装和启动、按逆序关闭；这提供了
+Core 可装配边界，但权限、任务和存储实现仍由 Runtime 内部统一维护，并非任意组件都已成为外部插件。
 
 上方 SVG 架构图使用 Archify 从本仓库运行时事实生成，并通过 showcase 级结构、连线、标签与桌面可读性校验。
 
