@@ -12,6 +12,8 @@ keyfile
 credentials*.json
 
 .venv/
+.vscode/
+.codegraph/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -24,12 +26,6 @@ build/
 *.egg-info/
 data/
 docs/
-!docs/
-docs/*
-!docs/medrag_nexus_api.md
-!docs/assets/
-docs/assets/*
-!docs/assets/medrag-nexus-runtime.svg
 SimBrain/
 .agents/
 skills-lock.json
