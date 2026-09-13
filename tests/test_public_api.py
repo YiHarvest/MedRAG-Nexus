@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from medrag_nexus import __version__
-from medrag_nexus.api import create_app
+from medrag_nexus.api import ServiceContainer, create_app
 from medrag_nexus.core import AddRequest, Settings
 from medrag_nexus.mcp import mcp
 from medrag_nexus.pipeline import parse_file
@@ -19,6 +19,7 @@ def test_package_initializers_export_public_api() -> None:
         value is not None
         for value in (
             create_app,
+            ServiceContainer,
             AddRequest,
             Settings,
             parse_file,
