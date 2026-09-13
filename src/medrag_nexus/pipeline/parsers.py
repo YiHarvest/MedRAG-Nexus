@@ -18,7 +18,7 @@ import httpx
 
 from medrag_nexus.core.config import Settings
 
-SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt"}
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".txt", ".md"}
 ParseProgress = Callable[[str, str, dict[str, object]], Awaitable[None]]
 
 
@@ -78,7 +78,8 @@ def validate_file_type(path: Path) -> str:
     if declared not in SUPPORTED_EXTENSIONS:
         raise ValueError(f"unsupported file extension: {declared or '<none>'}")
     detected = sniff_extension(path)
-    if not detected or declared != detected:
+    expected_detected = ".txt" if declared == ".md" else declared
+    if not detected or expected_detected != detected:
         detected_label = detected or "unknown"
         raise ValueError(f"file content does not match extension: declared={declared}, detected={detected_label}")
     return declared
@@ -387,7 +388,7 @@ async def parse_file(
         extension=extension,
         size_bytes=size_bytes,
     )
-    if extension == ".txt":
+    if extension in {".txt", ".md"}:
         await _report(progress, "INFO", "开始检测文本编码并提取内容", parser="text")
         markdown = await asyncio.to_thread(_text, path)
         await _report(

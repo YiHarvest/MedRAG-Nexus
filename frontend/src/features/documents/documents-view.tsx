@@ -49,7 +49,7 @@ import {
 } from "@/lib/webui-api";
 import type { FileListItem, StringListItem, WorkspaceStats } from "@/lib/types";
 
-const ACCEPTED_FILES = [".pdf", ".txt", ".docx"];
+const ACCEPTED_FILES = [".pdf", ".txt", ".docx", ".md"];
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const WORKSPACE_POLICY_ACTIONS: PolicyActionOption[] = [
@@ -1257,7 +1257,7 @@ export function DocumentsView() {
                       <h3>{submitting ? "正在处理上传任务" : "将文件拖到这里"}</h3>
                       <p>{submitting ? "完成后即可继续添加文件" : "也可以点击此区域选择文件，选择后会自动上传"}</p>
                       <div className="upload-zone-formats" aria-label="支持的文件格式">
-                        <span>PDF</span><span>TXT</span><span>DOCX</span>
+                        <span>PDF</span><span>TXT</span><span>DOCX</span><span>MD</span>
                       </div>
                       <p className="upload-zone-help">单个文件不超过 50 MiB · 每次最多选择 5 个</p>
                     </div>

@@ -250,7 +250,7 @@ docker compose stop redis
 
 WebUI 使用 Next.js 16 与 Carbon Design System。浏览器只调用后端注册和业务 API；知识身份、Workspace 权限和 Agent 工具能力全部由 Python 后端决定并再次校验。
 
-- 支持 PDF、TXT、DOCX 拖拽上传与普通文本入库，并展示异步任务进度。
+- 支持 PDF、TXT、DOCX、Markdown 拖拽上传与普通文本入库，并展示异步任务进度。
 - 支持知识域、Workspace、文件、字符串、检索与聊天。
 - 成员等级为 `0 / 1 / 2 / 1000`，自定义权限组的权限节点取并集。
 - UserID 与 Workspace ACL 默认拒绝，显式 `deny` 优先；Workspace 还必须通过父 UserID 权限链。
@@ -279,7 +279,7 @@ REST 业务接口统一使用 `/api/v1/*`，由后端账号 Session、权限节�
 | --- | --- | --- |
 | HTTP | `/api/v1/auth/*`、`/api/v1/account*` | 后端注册、登录、Session、账号与密码管理 |
 | HTTP | `/api/v1/users*`、`/api/v1/workspaces*` | 后端创建知识域/知识库并执行权限与 ACL 校验 |
-| HTTP | `POST /api/v1/workspaces/{id}/resources` | 新增 PDF、TXT、DOCX 或字符串，异步返回任务 |
+| HTTP | `POST /api/v1/workspaces/{id}/resources` | 新增 PDF、TXT、DOCX、Markdown 或字符串，异步返回任务 |
 | HTTP | `POST /api/v1/retrieval`、`POST /api/v1/chat/stream` | 混合检索与流式聊天 |
 | HTTP | `/api/v1/tasks/{task_id}` | 查询或取消异步任务 |
 | HTTP | `/api/v1/agent/*` | Agent 动作、确认和临时制品 |

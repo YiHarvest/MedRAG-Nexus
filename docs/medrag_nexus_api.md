@@ -38,7 +38,7 @@
 
 向 `POST /api/v1/workspaces/{workspace_id}/resources` 提交 multipart：
 
-- 文件：`type=file` 和 `file`，支持 PDF、TXT、DOCX。
+- 文件：`type=file` 和 `file`，支持 PDF、TXT、DOCX、Markdown。
 - 字符串：`type=str` 和 `content`。
 
 接口从后端 Workspace 记录推导知识域和 Workspace 名称。新增、删除返回 `202` 与 `task_id`；使用 `GET /api/v1/tasks/{task_id}` 查询，使用 `DELETE /api/v1/tasks/{task_id}` 取消允许取消的任务。
