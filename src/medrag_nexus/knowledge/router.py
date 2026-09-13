@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import sqlite3
 from collections.abc import Callable
@@ -12,7 +11,6 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import Field, StringConstraints
-from starlette.datastructures import UploadFile
 from starlette.responses import FileResponse, StreamingResponse
 
 from medrag_nexus.core.ids import normalize_workspace_name
@@ -24,12 +22,10 @@ from medrag_nexus.core.models import (
     DeleteFileRequest,
     DeleteStringRequest,
     FileListResponse,
-    FileSource,
     HealthResponse,
     Identifier,
     RetrievalRequest,
     RetrievalResponse,
-    StringSource,
     TaskAccepted,
     TaskResponse,
     WorkspaceRecord,
@@ -51,6 +47,7 @@ from .policies import (
     KnowledgePolicyStore,
     PolicyBinding,
 )
+from .uploads import UploadParseError, parse_resource_upload
 
 WorkspaceName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)]
 
@@ -1361,48 +1358,33 @@ def create_knowledge_router(
         caller: AccountPrincipal = principal_dep,
     ) -> TaskAccepted:
         _verify_same_origin(request)
-        form = await request.form()
-        source_type = str(form.get("type") or "")
-        if source_type == "file":
-            permission = "webui.resource.file.add"
-        elif source_type == "str":
-            permission = "webui.resource.text.add"
-        else:
-            raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "validation_error", "type must be file or str")
-        workspace = await require_workspace(
-            caller,
-            workspace_id,
-            action=permission,
-            permission=permission,
-        )
-        if source_type == "file":
-            uploaded = form.get("file")
-            if not isinstance(uploaded, UploadFile):
-                raise _error(status.HTTP_422_UNPROCESSABLE_ENTITY, "validation_error", "file is required")
-            content = await uploaded.read(runtime.settings.max_file_bytes + 1)
-            source = FileSource(
-                file_name=uploaded.filename or "upload.bin",
-                mime_type=uploaded.content_type or "application/octet-stream",
-                content_base64=base64.b64encode(content).decode("ascii"),
+        workspace: WorkspaceRecord | None = None
+
+        async def authorize_upload(source_type: Literal["file", "str"]) -> None:
+            nonlocal workspace
+            permission = "webui.resource.file.add" if source_type == "file" else "webui.resource.text.add"
+            workspace = await require_workspace(
+                caller,
+                workspace_id,
+                action=permission,
+                permission=permission,
             )
-            audit_source = {
-                "source_type": source_type,
-                "file_name": source.file_name,
-                "mime_type": source.mime_type,
-                "size_bytes": len(content),
-            }
-        else:
-            source = StringSource(content=str(form.get("content") or ""))
-            audit_source = {
-                "source_type": source_type,
-                "size_bytes": len(source.content.encode("utf-8")),
-            }
+
+        try:
+            upload = await parse_resource_upload(
+                request,
+                max_file_bytes=runtime.settings.max_file_bytes,
+                authorize=authorize_upload,
+            )
+        except UploadParseError as exc:
+            raise _error(exc.status_code, exc.code, exc.message, details=exc.details) from exc
+        assert workspace is not None
         accepted = await FileService(runtime).submit_add(
             AddRequest(
                 user_id=workspace.user_id,
                 workspace_id=workspace_id,
                 workspace_name=workspace.workspace_name,
-                source=source,
+                source=upload.source,
             )
         )
         await account_store.record_audit(
@@ -1410,7 +1392,7 @@ def create_knowledge_router(
             action="webui.resource.add.submit",
             resource_type="workspace",
             resource_id=workspace_id,
-            after={**audit_source, **accepted.model_dump(mode="json")},
+            after={**upload.audit, **accepted.model_dump(mode="json")},
         )
         return accepted
 
@@ -1698,5 +1680,14 @@ def _verify_same_origin(request: Request) -> None:
         raise _error(status.HTTP_403_FORBIDDEN, "origin_denied", "cross-origin mutation is not allowed")
 
 
-def _error(status_code: int, code: str, message: str) -> HTTPException:
-    return HTTPException(status_code=status_code, detail={"code": code, "message": message})
+def _error(
+    status_code: int,
+    code: str,
+    message: str,
+    *,
+    details: dict[str, Any] | None = None,
+) -> HTTPException:
+    detail: dict[str, Any] = {"code": code, "message": message}
+    if details is not None:
+        detail["details"] = details
+    return HTTPException(status_code=status_code, detail=detail)
